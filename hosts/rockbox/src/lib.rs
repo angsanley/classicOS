@@ -251,6 +251,12 @@ pub unsafe extern "C" fn pocketjs_frame(
     count
 }
 
+/// Repaints the whole framebuffer on the next frame.
+#[no_mangle]
+pub unsafe extern "C" fn pocketjs_invalidate() {
+    (*addr_of_mut!(DAMAGE)).invalidate();
+}
+
 /// Copies the last frame's model, draw and raster times in µs to `out[0..3]`.
 #[no_mangle]
 pub unsafe extern "C" fn pocketjs_timings(out: *mut u32) {

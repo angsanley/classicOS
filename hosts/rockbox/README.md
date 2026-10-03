@@ -26,7 +26,7 @@ The build changes the Rockbox checkout: it copies [`plugin/`](plugin) to `apps/p
 | iPod control | PocketJS input |
 | --- | --- |
 | Select | `confirm` (○) |
-| Menu | `back` (×) on release; holding it for 400 ms quits, the `docs/HIG.md` Home chord |
+| Menu | `back` (×) on release; holding it for 400 ms opens a Resume / Quit menu |
 | Play/Pause | `START` |
 | ⏮ / ⏭ | Left / Right |
 | Click wheel | Moves focus; also relative axis 0, 15° per step |

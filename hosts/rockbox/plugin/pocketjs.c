@@ -10,7 +10,7 @@
 #define BUSY_PERIOD 3 /* ticks; the app clock runs at 33 Hz */
 #define IDLE_PERIOD (HZ / 10)
 #define IDLE_AFTER HZ
-#define HOME_HOLD (HZ * 4 / 10) /* docs/HIG.md system chord: hold 400 ms */
+#define HOME_HOLD (HZ * 4 / 10) /* docs/HIG.md system chords: hold 400 ms */
 
 #ifdef PJS_PERF_HUD
 #define HUD_H 10
@@ -32,6 +32,7 @@ int pocketjs_init(void *heap, size_t heap_len, int w, int h);
 int pocketjs_frame(fb_data *fb, int w, int h, unsigned buttons, int wheel,
                    int (*rects)[4]);
 void pocketjs_timings(uint32_t *out);
+void pocketjs_invalidate(void);
 
 static unsigned long *stack;
 static void *heap;
@@ -105,6 +106,26 @@ static void set_boost(bool *boosted, bool on)
         rb->cpu_boost(on);
 #endif
     *boosted = on;
+}
+
+/* The docs/HIG.md system sheet: the app pauses while Rockbox draws the menu
+ * over its framebuffer, and repaints in full afterwards. */
+static int system_menu(void)
+{
+    MENUITEM_STRINGLIST(menu, "PocketJS", NULL, "Resume", "Quit");
+    int selected = 0, result;
+
+    /* Wait for the Menu release; button_get also pumps simulator input. */
+    while (rb->button_status() & BUTTON_MENU)
+        rb->button_get_w_tmo(HZ / 20);
+    rb->button_clear_queue();
+    result = rb->do_menu(&menu, &selected, NULL, false);
+    rb->lcd_set_viewport(NULL);
+    rb->lcd_set_drawmode(DRMODE_SOLID);
+    rb->lcd_set_foreground(LCD_WHITE);
+    rb->lcd_set_background(LCD_BLACK);
+    pocketjs_invalidate();
+    return result;
 }
 
 #ifdef PJS_PERF_HUD
@@ -185,7 +206,7 @@ static void run(void)
         int wheel = 0;
 
         frame_start = *rb->current_tick;
-        /* Holding Menu is the Home chord: it quits and never reaches the app.
+        /* Holding Menu opens the system menu and never reaches the app.
          * A shorter press reaches the app as back for one frame on release.
          * Wheel steps are summed per frame and delivered as a relative axis. */
         if (b == BUTTON_NONE)
@@ -210,8 +231,18 @@ static void run(void)
                     wheel--;
             }
         }
-        if (menu_held && TIME_AFTER(frame_start, menu_down + HOME_HOLD))
-            break;
+        if (menu_held && TIME_AFTER(frame_start, menu_down + HOME_HOLD)) {
+            menu_held = false;
+            b = BUTTON_NONE;
+            switch (system_menu()) {
+            case 1:
+                goto out;
+            case MENU_ATTACHED_USB:
+                status = PLUGIN_USB_CONNECTED;
+                goto out;
+            }
+            continue;
+        }
 
         if (held || wheel) {
             set_boost(&boosted, true);

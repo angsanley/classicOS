@@ -1,3 +1,28 @@
 main.c
 shims.c
 host.c
+
+/* Rockbox playback engine */
+#if INPUT_SRC_CAPS != 0
+../audio_path.c
+#endif
+../buffering.c
+../rbcodec_helpers.c
+../audio_thread.c
+../pcmbuf.c
+../codec_thread.c
+../playback.c
+../codecs.c
+../playlist.c
+settings.c
+
+#ifdef HAVE_ALBUMART
+../recorder/bmp.c
+../recorder/resize.c
+../recorder/jpeg_load.c
+#ifdef CPU_ARM
+../recorder/jpeg_idct_arm.S
+#endif
+../recorder/albumart.c
+#endif
+media.c

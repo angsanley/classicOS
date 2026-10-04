@@ -15,6 +15,7 @@
 #include "usb.h"
 #include "powermgmt.h"
 #include "host.h"
+#include "media.h"
 #include "core_alloc.h"
 
 #define DATA_DIR ROCKBOX_DIR "/classicos"
@@ -200,6 +201,15 @@ void classicos_host_run(void)
                 shutdown_hw(SHUTDOWN_POWER_OFF);
             else if (b == BUTTON_PLAY)
                 play_down = frame_start;
+            else if (b == (BUTTON_PLAY | BUTTON_REL)) {
+                if (play_down)  /* short press; a long one powered off */
+                    media_play_pause();
+                play_down = 0;
+            }
+            else if (b == (BUTTON_RIGHT | BUTTON_REL))
+                media_skip(1);
+            else if (b == (BUTTON_LEFT | BUTTON_REL))
+                media_skip(-1);
             else if (!(b & (SYS_EVENT | BUTTON_REL))) {
                 if (b & BUTTON_SCROLL_FWD)
                     wheel++;

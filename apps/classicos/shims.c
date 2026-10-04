@@ -4,19 +4,12 @@
 #include "config.h"
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
+#include "string-extra.h"
 #include "file.h"
 #include "panic.h"
 #include "settings.h"
 #include "misc.h"
-
-struct user_settings global_settings;
-struct system_status global_status;
-
-/* no-op audio until playback.c is linked (M3) */
-bool audio_is_initialized = false;
-void audio_stop(void) {}
-void audio_pause(void) {}
-int audio_status(void) { return 0; }
 
 int get_radio_status(void) { return 0; }
 
@@ -54,15 +47,6 @@ int open_pathfmt(char *buf, size_t size, int oflag, const char *pathfmt, ...)
     return open(buf, oflag, 0666);
 }
 
-/* timestretch buffers: unsupported for now, the DSP falls back to 1x */
-bool tdspeed_alloc_buffers(int32_t **buffers, const int *buf_s, int nbuf)
-{
-    (void)buffers; (void)buf_s; (void)nbuf;
-    return false;
-}
-
-void tdspeed_free_buffers(int32_t **buffers, int nbuf) { (void)buffers; (void)nbuf; }
-
 /* only reached for viewports with a non-default stride, which we never make */
 void viewport_set_buffer(struct viewport *vp, struct frame_buffer_t *buffer,
                          const enum screen_type screen)
@@ -84,40 +68,6 @@ struct playlist_track_info;
 struct mp3entry;
 struct dim;
 
-size_t audio_buffer_available(void) { return 0; }
-struct mp3entry *audio_current_track(void) { return NULL; }
-void audio_flush_and_reload_tracks(void) {}
-void audio_skip(int direction) { (void)direction; }
-void audio_set_input_source(int source, unsigned flags) { (void)source; (void)flags; }
-ssize_t bufgetdata(int handle_id, size_t size, void **data)
-{
-    (void)handle_id; (void)size; (void)data;
-    return -1;
-}
-int playback_claim_aa_slot(struct dim *dim) { (void)dim; return -1; }
-int playback_current_aa_hid(int slot) { (void)slot; return -1; }
-void playback_release_aa_slot(int slot) { (void)slot; }
-
-int playlist_amount(void) { return 0; }
-int playlist_next(int steps) { (void)steps; return -1; }
-int playlist_get_display_index(void) { return 0; }
-int playlist_get_first_index(const struct playlist_info *playlist) { (void)playlist; return 0; }
-int playlist_get_track_info(struct playlist_info *playlist, int index,
-                            struct playlist_track_info *info)
-{
-    (void)playlist; (void)index; (void)info;
-    return -1;
-}
-int playlist_randomise(struct playlist_info *playlist, unsigned int seed, bool start_current)
-{
-    (void)playlist; (void)seed; (void)start_current;
-    return -1;
-}
-int playlist_sort(struct playlist_info *playlist, bool start_current)
-{
-    (void)playlist; (void)start_current;
-    return -1;
-}
 
 void adjust_volume(int steps) { (void)steps; }
 void setvol(void) {}
@@ -129,3 +79,119 @@ bool iap_getc(IF_IAP_MP(int port,) unsigned char x) { (void)x; return false; }
 void iap_reset_state(IF_IAP_MP_NONVOID(int port)) {}
 int remote_control_rx(void) { return 0; }
 #endif
+
+/* Playback engine hooks into UI features classicOS doesn't have (yet):
+ * A-B repeat, cuesheets, voice, system sounds, FM remote. */
+struct mp3entry;
+struct cuesheet_file;
+struct cuesheet;
+struct tree_context;
+struct entry;
+enum system_sound;
+
+bool ab_before_A_marker(unsigned int pos) { (void)pos; return false; }
+bool ab_after_A_marker(unsigned int pos) { (void)pos; return false; }
+bool ab_get_B_marker(unsigned int *pos) { (void)pos; return false; }
+void ab_end_of_track_report(void) {}
+void ab_jump_to_A_marker(void) {}
+bool look_for_cuesheet_file(struct mp3entry *id3, struct cuesheet_file *cue_file)
+{
+    (void)id3; (void)cue_file;
+    return false;
+}
+bool parse_cuesheet(struct cuesheet_file *cue_file, struct cuesheet *cue)
+{
+    (void)cue_file; (void)cue;
+    return false;
+}
+void voice_stop(void) {}
+void talk_buffer_set_policy(int policy) { (void)policy; }
+void talk_force_enqueue_next(void) {}
+void talk_force_shutup(void) {}
+int talk_id(int32_t id, bool enqueue) { (void)id; (void)enqueue; return -1; }
+int talk_idarray(const long *ids, bool enqueue) { (void)ids; (void)enqueue; return -1; }
+int talk_number(long n, bool enqueue) { (void)n; (void)enqueue; return -1; }
+void system_sound_play(enum system_sound sound) { (void)sound; }
+void radio_pause(void) {}
+void radio_start(void) {}
+void radio_stop(void) {}
+
+/* playlist.c UI hooks. The tree context only backs "auto-change directory"
+ * and building a playlist from the file browser; classicOS queues tracks with
+ * playlist_create + playlist_insert_track instead. */
+bool action_userabort(int timeout) { (void)timeout; return false; }
+bool check_rockboxdir(void) { return true; }
+int ft_build_playlist(struct tree_context *c, int start) { (void)c; (void)start; return -1; }
+int ft_load(struct tree_context *c, const char *dir) { (void)c; (void)dir; return -1; }
+void reload_directory(void) {}
+struct tree_context *tree_get_context(void) { return NULL; }
+struct entry *tree_get_entries(struct tree_context *t) { (void)t; return NULL; }
+void tree_lock_cache(struct tree_context *t) { (void)t; }
+void tree_unlock_cache(struct tree_context *t) { (void)t; }
+bool show_search_progress(bool init, int count, int current, int total)
+{
+    (void)init; (void)count; (void)current; (void)total;
+    return true;
+}
+void splash_progress_set_delay(long delay) { (void)delay; }
+void splash_progress(int current, int total, const char *fmt, ...)
+{
+    (void)current; (void)total; (void)fmt;
+}
+bool yesno_pop(const char *text) { (void)text; return false; }
+void status_save(bool force) { (void)force; }
+void wps_playlist_percent_prepare(void) {}
+
+unsigned int ab_B_marker; /* AB_MARKER_NONE */
+
+/* From apps/misc.c, used by albumart.c */
+char *strip_extension(char *buffer, int buffer_size, const char *filename)
+{
+    if (!buffer || !filename || buffer_size <= 0)
+        return NULL;
+
+    off_t dotpos = (strrchr(filename, '.') - filename) + 1;
+
+    /* no match on filename beginning with '.' or beyond buffer_size */
+    if (dotpos > 1 && dotpos < buffer_size)
+        buffer_size = dotpos;
+    strmemccpy(buffer, filename, buffer_size);
+    return buffer;
+}
+
+void fix_path_part(char *path, int offset, int count)
+{
+    static const char invalid_chars[] = "*/:<>?\\|";
+
+    path += offset;
+    for (int i = 0; i <= count; i++, path++) {
+        if (*path == 0)
+            return;
+        if (*path == '"')
+            *path = '\'';
+        else if (strchr(invalid_chars, *path))
+            *path = '_';
+    }
+}
+
+/* Native-only engine hooks: recording (line-in accessories), the tag
+ * database and the voice thread. None are built into classicOS. */
+struct queue_event;
+
+#ifdef HAVE_RECORDING
+void audio_recording_handler(struct queue_event *ev) { (void)ev; }
+void recording_init(void) {}
+void pcm_rec_error_clear(void) {}
+unsigned int pcm_rec_status(void) { return 0; }
+#endif
+#ifdef IPOD_ACCESSORY_PROTOCOL
+bool iap_record(bool onoff) { (void)onoff; return false; }
+#endif
+#ifdef HAVE_TAGCACHE
+bool tagcache_fill_tags(struct mp3entry *id3, const char *filename)
+{
+    (void)id3; (void)filename;
+    return false;
+}
+#endif
+void voice_thread_set_priority(int priority) { (void)priority; }

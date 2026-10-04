@@ -20,6 +20,12 @@
 #include "panic.h"
 #include "file_internal.h"
 #include "host.h"
+#include "settings.h"
+#include "settings_classicos.h"
+#include "pcm.h"
+#include "dsp_core.h"
+#include "playlist.h"
+#include "audio.h"
 
 #if (CONFIG_PLATFORM & PLATFORM_NATIVE)
 #include "i2c.h"
@@ -54,6 +60,12 @@ int main(int argc, char *argv[])
     sim_tasks_init();
 #endif
     storage_init();
+    classicos_settings_init();
+    pcm_init();
+    dsp_init();
+    sound_settings_apply();
+    playlist_init();
+    audio_init();
 #ifndef USB_NONE
     usb_init();
     usb_start_monitoring();
@@ -111,6 +123,12 @@ int main(void)
     if (disk_mount_all() <= 0)
         panicf("no filesystem");
     init_battery_tables();
+    classicos_settings_init();
+    pcm_init();
+    dsp_init();
+    sound_settings_apply();
+    playlist_init();
+    audio_init();
 
 #ifndef USB_NONE
     usb_start_monitoring();

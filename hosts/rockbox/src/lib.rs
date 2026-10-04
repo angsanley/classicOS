@@ -26,6 +26,9 @@ use microts::{
 
 include!(concat!(env!("POCKETJS_GEN"), "/include.rs"));
 
+#[cfg(feature = "services")]
+mod services;
+
 /// ARMv4 rotates unaligned word loads instead of faulting.
 #[repr(C, align(4))]
 struct Aligned<B: ?Sized>(B);
@@ -182,6 +185,8 @@ fn load_assets(ui: &mut Ui) -> bool {
 pub unsafe extern "C" fn pocketjs_init(heap: *mut u8, heap_len: usize, w: i32, h: i32) -> i32 {
     (*ALLOCATOR.0.get()).init(heap, heap_len);
     let mut ui = Ui::new();
+    #[cfg(feature = "services")]
+    ui.set_model_services(services::NAMES.iter().map(|name| String::from(*name)));
     ui.core_mut().set_viewport(w as f32, h as f32);
     // Busy frames are 3 Rockbox ticks (33.3 Hz).
     ui.core_mut().set_tick_rate(33);
@@ -226,6 +231,8 @@ pub unsafe extern "C" fn pocketjs_frame(
         axis_deltas: [wheel.saturating_mul(WHEEL_STEP_MILLIDEGREES), 0],
         ..Input::default()
     });
+    #[cfg(feature = "services")]
+    services::serve(app.ui_mut());
     let t1 = pocketjs_host_usec();
     let core = app.ui_mut().core_mut();
     core.draw();

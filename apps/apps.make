@@ -7,7 +7,11 @@
 #
 
 INCLUDES += -I$(APPSDIR) $(patsubst %,-I$(APPSDIR)/%,$(subst :, ,$(APPEXTRA)))
+ifdef CLASSICOS
+include $(APPSDIR)/classicos/classicos.make
+else
 SRC += $(call preprocess, $(APPSDIR)/SOURCES)
+endif
 
 # apps/features.txt is a file that (is preprocessed and) lists named features
 # based on defines in the config-*.h files. The named features will be passed

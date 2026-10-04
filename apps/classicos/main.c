@@ -65,8 +65,7 @@ int main(int argc, char *argv[])
 
 #else
 
-#define UI_STACK_SIZE (256 * 1024)
-static unsigned char ui_stack[UI_STACK_SIZE] CACHEALIGN_ATTR;
+unsigned char ui_stack[UI_STACK_SIZE] CACHEALIGN_ATTR;
 
 static void ui_thread(void)
 {

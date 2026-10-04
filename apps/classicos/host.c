@@ -15,6 +15,7 @@
 #include "usb.h"
 #include "powermgmt.h"
 #include "host.h"
+#include "core_alloc.h"
 
 #define DATA_DIR ROCKBOX_DIR "/classicos"
 
@@ -36,6 +37,7 @@ int pocketjs_init(void *heap, size_t heap_len, int w, int h);
 int pocketjs_frame(fb_data *fb, int w, int h, unsigned buttons, int wheel,
                    int (*rects)[4]);
 void pocketjs_invalidate(void);
+void pocketjs_timings(uint32_t *out);
 
 /* static heap; carve it from buflib next to the audio buffer once
  * playback is linked (M3). The plugin host peaked around 255 KB. */
@@ -92,6 +94,61 @@ static void set_boost(bool *boosted, bool on)
     *boosted = on;
 }
 
+#ifdef PJS_HUD
+/* make PJS_HUD=1: bottom strip with
+ * fps, B(oosted)/i(dle), model/draw/raster/lcd ms, repainted %, UI stack, free RAM */
+#define HUD_H 10
+
+struct perf {
+    unsigned frames;
+    unsigned long phase[4]; /* µs: model, draw, raster, LCD */
+    unsigned long area, stack;
+    long since;
+};
+
+static void average(unsigned long *acc, unsigned long sample)
+{
+    *acc = *acc ? (*acc * 7 + sample) / 8 : sample;
+}
+
+static unsigned long stack_used(void)
+{
+#if (CONFIG_PLATFORM & PLATFORM_NATIVE)
+    const uint32_t *w = (const uint32_t *)ui_stack;
+    size_t i, n = UI_STACK_SIZE / 4;
+    for (i = 0; i < n && w[i] == 0xdeadbeef; i++)
+        ;
+    return (n - i) * 4;
+#else
+    return 0;
+#endif
+}
+
+/* Repaints solid each time because the damage tracker keeps untouched pixels. */
+static void draw_hud(struct perf *perf, bool boosted)
+{
+    char text[128];
+    long now = current_tick;
+
+    if (!(perf->frames & 31))
+        perf->stack = stack_used();
+    snprintf(text, sizeof(text), "%ld%c m%lu d%lu r%lu l%lu a%lu%% s%luK f%luK",
+             16 * HZ / MAX(now - perf->since, 1), boosted ? 'B' : 'i',
+             perf->phase[0] / 1000, perf->phase[1] / 1000,
+             perf->phase[2] / 1000, perf->phase[3] / 1000,
+             perf->area, perf->stack / 1024,
+             (unsigned long)(core_available() / 1024));
+    perf->since = now;
+    lcd_set_drawmode(DRMODE_SOLID | DRMODE_INVERSEVID);
+    lcd_fillrect(0, LCD_HEIGHT - HUD_H, LCD_WIDTH, HUD_H);
+    lcd_set_drawmode(DRMODE_SOLID);
+    lcd_putsxy(2, LCD_HEIGHT - HUD_H + 1, text);
+    lcd_update_rect(0, LCD_HEIGHT - HUD_H, LCD_WIDTH, HUD_H);
+}
+#else
+#define HUD_H 0
+#endif
+
 static void usb_mode(void)
 {
     lcd_clear_display();
@@ -109,6 +166,10 @@ void classicos_host_run(void)
     int rects[8][4], count, ret;
     long b = BUTTON_NONE, now, left, frame_start, last_active, play_down = 0;
     bool boosted = false;
+#ifdef PJS_HUD
+    struct perf perf = { 0 };
+    uint32_t t[3], lcd_start = 0;
+#endif
 
     lcd_set_foreground(LCD_WHITE);
     lcd_set_background(LCD_BLACK);
@@ -120,6 +181,9 @@ void classicos_host_run(void)
         panicf(ret == -2 ? "PocketJS: font or image missing in " DATA_DIR
                          : "PocketJS: init failed (%d)", ret);
     last_active = current_tick;
+#ifdef PJS_HUD
+    perf.since = last_active;
+#endif
 
     for (;;) {
         unsigned held = map_button(button_status()) & ~(PJ_UP | PJ_DOWN);
@@ -156,12 +220,32 @@ void classicos_host_run(void)
             last_active = frame_start;
         }
         count = pocketjs_frame(fb, LCD_WIDTH, LCD_HEIGHT, held, wheel, rects);
-        for (int i = 0; i < count; i++)
-            lcd_update_rect(rects[i][0], rects[i][1], rects[i][2], rects[i][3]);
+#ifdef PJS_HUD
+        lcd_start = pocketjs_host_usec();
+#endif
+        for (int i = 0; i < count; i++) {
+            int h = MIN(rects[i][3], LCD_HEIGHT - HUD_H - rects[i][1]);
+            if (h > 0)
+                lcd_update_rect(rects[i][0], rects[i][1], rects[i][2], h);
+        }
         if (count) {
             set_boost(&boosted, true);
             last_active = frame_start;
         }
+#ifdef PJS_HUD
+        pocketjs_timings(t);
+        for (int i = 0; i < 3; i++)
+            average(&perf.phase[i], t[i]);
+        if (count) {
+            unsigned long px = 0;
+            for (int i = 0; i < count; i++)
+                px += rects[i][2] * rects[i][3];
+            perf.area = px * 100 / (LCD_WIDTH * LCD_HEIGHT);
+            average(&perf.phase[3], pocketjs_host_usec() - lcd_start);
+        }
+        if (!(++perf.frames & 15))
+            draw_hud(&perf, boosted);
+#endif
 
         now = current_tick;
         if (boosted && TIME_AFTER(now, last_active + IDLE_AFTER))

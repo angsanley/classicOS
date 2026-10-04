@@ -3,8 +3,13 @@
 # generated build Makefile.
 #
 #   PJS_APP   MicroTS app under pocketjs/apps/ to run (default ipod-video-demo)
+#   PJS_HUD=1 profiling strip (fps, phase times, stack, free RAM), see host.c
 
 SRC += $(call preprocess, $(APPSDIR)/classicos/SOURCES)
+
+ifdef PJS_HUD
+$(BUILDDIR)/apps/classicos/host.o: CFLAGS += -DPJS_HUD
+endif
 
 # firmware/ calls into librbcodec, and the Rust core into libfirmware's libc;
 # normally apps/ objects pull those members in first, so group the archives.

@@ -165,7 +165,7 @@ void classicos_host_run(void)
 {
     fb_data *fb = lcd_set_viewport(NULL)->buffer->fb_ptr;
     int rects[8][4], count, ret;
-    long b = BUTTON_NONE, now, left, frame_start, last_active, play_down = 0;
+    long b = BUTTON_NONE, now, left, frame_start, last_input, last_active, play_down = 0;
     bool boosted = false;
 #ifdef PJS_HUD
     struct perf perf = { 0 };
@@ -181,7 +181,7 @@ void classicos_host_run(void)
     if (ret != 0)
         panicf(ret == -2 ? "PocketJS: font or image missing in " DATA_DIR
                          : "PocketJS: init failed (%d)", ret);
-    last_active = current_tick;
+    last_input = last_active = current_tick;
 #ifdef PJS_HUD
     perf.since = last_active;
 #endif
@@ -225,9 +225,12 @@ void classicos_host_run(void)
             sys_poweroff();
         }
 
+        /* Boost only for input: animations alone (e.g. a title marquee)
+         * repaint small areas and run fine at the normal clock. Repaints
+         * still keep the busy frame rate. */
         if (held || wheel) {
             set_boost(&boosted, true);
-            last_active = frame_start;
+            last_input = last_active = frame_start;
         }
         count = pocketjs_frame(fb, LCD_WIDTH, LCD_HEIGHT, held, wheel, rects);
 #ifdef PJS_HUD
@@ -238,10 +241,8 @@ void classicos_host_run(void)
             if (h > 0)
                 lcd_update_rect(rects[i][0], rects[i][1], rects[i][2], h);
         }
-        if (count) {
-            set_boost(&boosted, true);
+        if (count)
             last_active = frame_start;
-        }
 #ifdef PJS_HUD
         pocketjs_timings(t);
         for (int i = 0; i < 3; i++)
@@ -258,9 +259,9 @@ void classicos_host_run(void)
 #endif
 
         now = current_tick;
-        if (boosted && TIME_AFTER(now, last_active + IDLE_AFTER))
+        if (boosted && TIME_AFTER(now, last_input + IDLE_AFTER))
             set_boost(&boosted, false);
-        left = frame_start + (boosted ? BUSY_PERIOD : IDLE_PERIOD) - now;
+        left = frame_start + (TIME_AFTER(now, last_active + IDLE_AFTER) ? IDLE_PERIOD : BUSY_PERIOD) - now;
         b = left > 0 ? button_get_w_tmo(left) : BUTTON_NONE;
     }
 }

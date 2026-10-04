@@ -51,7 +51,7 @@ pub use motion::{
     MotionState, MotionVector,
 };
 pub use pocketjs_core;
-pub use ui::{Input, NodeId, StyleId, Ui};
+pub use ui::{Input, NodeId, ServiceRequest, StyleId, Ui};
 
 /// One pending update, regardless of how many handlers or host mutations occurred.
 #[derive(Clone, Copy, Debug)]

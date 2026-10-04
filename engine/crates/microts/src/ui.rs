@@ -103,6 +103,15 @@ impl Input {
     }
 }
 
+/// A model service call addressed to the embedding host.
+#[derive(Clone, Debug)]
+pub struct ServiceRequest {
+    pub service: String,
+    pub call: String,
+    pub args: Vec<crate::model::Value>,
+    pub request: crate::RequestId,
+}
+
 /// Typed direct calls into `pocketjs_core::Ui`; no op stream or mirror tree.
 pub struct Ui {
     core: CoreUi,
@@ -115,6 +124,7 @@ pub struct Ui {
     model_ticks: u64,
     model_deliveries: Vec<crate::model::Delivery>,
     model_services: Vec<String>,
+    model_requests: Vec<ServiceRequest>,
     model_animations: BTreeMap<i32, crate::RequestId>,
     model_logs: Vec<String>,
 }
@@ -141,6 +151,7 @@ impl Ui {
             model_ticks: 0,
             model_deliveries: Vec::new(),
             model_services: Vec::new(),
+            model_requests: Vec::new(),
             model_animations: BTreeMap::new(),
             model_logs: Vec::new(),
         }
@@ -273,10 +284,19 @@ impl Ui {
                 }
             }
             Cmd::Jump { node, prop, value } => if let Some(node) = node { self.core.set_prop(node.0, prop, value as f64); },
-            Cmd::Request { request, .. } => self.model_deliveries.push(Delivery {
-                request, result: Completion::Value(Value::Object(alloc::vec![(String::from("kind"), Value::String(String::from("unavailable")))])),
-            }),
+            // Services the host declared go to the host; it answers with
+            // queue_model_delivery. Everything else is unavailable.
+            Cmd::Request { service, call, args, request } => {
+                if self.model_services.binary_search(&service).is_ok() {
+                    self.model_requests.push(ServiceRequest { service, call, args, request });
+                } else {
+                    self.model_deliveries.push(Delivery {
+                        request, result: Completion::Value(Value::Object(alloc::vec![(String::from("kind"), Value::String(String::from("unavailable")))])),
+                    });
+                }
+            }
             Cmd::Cancel { request } => {
+                self.model_requests.retain(|pending| pending.request != request);
                 let animation = self.model_animations.iter().find_map(|(id, pending)| (*pending == request).then_some(*id));
                 // Cancelling a wait drops its listener, not the motion already submitted.
                 if let Some(id) = animation { self.model_animations.remove(&id); }
@@ -285,6 +305,9 @@ impl Ui {
             Cmd::Log(message) => { if cfg!(debug_assertions) { self.model_logs.push(message); } }
         }
     }
+    /// Service requests for modules declared with set_model_services, in
+    /// issue order. Answer each with queue_model_delivery.
+    pub fn drain_model_requests(&mut self) -> impl Iterator<Item = ServiceRequest> + '_ { self.model_requests.drain(..) }
     /// Development log messages delivered by model commands, consumed by the embedding host.
     pub fn drain_model_logs(&mut self) -> impl Iterator<Item = String> + '_ { self.model_logs.drain(..) }
 
@@ -574,5 +597,22 @@ mod model_tests {
         assert!(first.delivery(request(2)).is_none());
         assert_eq!(ui.model_ready().delivery(request(2)), Some(&Completion::Value(Value::I32(4))));
         assert!(ui.model_ready().deliveries.is_empty());
+    }
+    #[test]
+    fn declared_service_requests_reach_the_host_and_cancel_drops_them() {
+        use crate::model::Value;
+        let mut ui = Ui::new();
+        ui.set_model_services([String::from("host/model")]);
+        let call = |service: &str, wait| Cmd::Request { service: String::from(service), call: String::from("snapshot"), args: alloc::vec![], request: request(wait) };
+        ui.model_command(call("host/model", 1));
+        ui.model_command(call("other/model", 2));
+        ui.model_command(call("host/model", 3));
+        ui.model_command(Cmd::Cancel { request: request(3) });
+        let pending: alloc::vec::Vec<_> = ui.drain_model_requests().collect();
+        assert_eq!(pending.len(), 1);
+        assert_eq!((pending[0].request, pending[0].call.as_str()), (request(1), "snapshot"));
+        let ready = ui.model_ready();
+        assert!(ready.delivery(request(1)).is_none());
+        assert_eq!(ready.delivery(request(2)), Some(&Completion::Value(Value::Object(alloc::vec![(String::from("kind"), Value::String(String::from("unavailable")))]))));
     }
 }

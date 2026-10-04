@@ -124,6 +124,9 @@ int main(void)
         panicf("no filesystem");
     init_battery_tables();
     classicos_settings_init();
+#if defined(HAVE_USB_CHARGING_ENABLE) && defined(HAVE_USBSTACK)
+    usb_charging_enable(global_settings.usb_charging);
+#endif
     pcm_init();
     dsp_init();
     sound_settings_apply();

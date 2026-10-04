@@ -7,6 +7,7 @@
 #include <string.h>
 #include "settings.h"
 #include "sound.h"
+#include "usb.h"
 #include "settings_classicos.h"
 
 struct user_settings global_settings;
@@ -22,6 +23,11 @@ void classicos_settings_init(void)
     global_settings.repeat_mode = REPEAT_OFF;
     global_settings.single_mode = SINGLE_MODE_OFF;
     global_settings.max_files_in_playlist = 10000;
+#ifdef HAVE_USB_CHARGING_ENABLE
+    /* iPod Video: always ask the host for 500mA. At 100mA (the zeroed
+     * default) HDD writes over USB brown out and the volume drops. */
+    global_settings.usb_charging = TARGET_USB_CHARGING_DEFAULT;
+#endif
 #ifdef HAVE_DISK_STORAGE
     global_settings.buffer_margin = 5;
 #endif

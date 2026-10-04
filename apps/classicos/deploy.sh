@@ -18,4 +18,6 @@ cp "$B"/lib/rbcodec/codecs/*.codec "$V/.rockbox/codecs/"
 mkdir -p "$V/.rockbox/classicos"
 cp -R "$B/classicos/data/." "$V/.rockbox/classicos/"
 sync
+cmp "$B/rockbox.ipod" "$V/.rockbox/rockbox.ipod"
+echo "deployed and verified"
 diskutil eject "$V"

@@ -19,6 +19,7 @@
 #include "usb.h"
 #include "panic.h"
 #include "file_internal.h"
+#include "host.h"
 
 #if (CONFIG_PLATFORM & PLATFORM_NATIVE)
 #include "i2c.h"
@@ -34,49 +35,6 @@
 #ifdef SIMULATOR
 #include "sim_tasks.h"
 #endif
-
-/* placeholder UI until the PocketJS host lands (M2) */
-static void ui_run(void)
-{
-    char line[32];
-    int y = 0, n = 0;
-
-    lcd_set_background(LCD_RGBPACK(24, 24, 32));
-    lcd_set_foreground(LCD_WHITE);
-    lcd_clear_display();
-    lcd_setfont(FONT_SYSFIXED);
-    lcd_putsxy(8, 8, "classicOS M1");
-    lcd_putsxy(8, 20, "hold Play: power off");
-    lcd_update();
-
-    while (1)
-    {
-        long btn = button_get(true);
-
-        if (btn == SYS_USB_CONNECTED)
-        {
-            usb_acknowledge(SYS_USB_CONNECTED_ACK, button_get_data());
-            while (button_get(true) != SYS_USB_DISCONNECTED);
-            continue;
-        }
-        if (btn == (BUTTON_PLAY | BUTTON_REPEAT))
-            power_off();
-        if (btn & (SYS_EVENT | BUTTON_REL))
-            continue;
-
-        snprintf(line, sizeof(line), "%3d btn %08lx", ++n, btn);
-        if (y == 0 || y > LCD_HEIGHT - 16)
-        {
-            lcd_set_drawmode(DRMODE_SOLID | DRMODE_INVERSEVID);
-            lcd_fillrect(0, 36, LCD_WIDTH, LCD_HEIGHT - 36);
-            lcd_set_drawmode(DRMODE_SOLID);
-            y = 40;
-        }
-        lcd_putsxy(8, y, line);
-        lcd_update();
-        y += 10;
-    }
-}
 
 #if (CONFIG_PLATFORM & PLATFORM_HOSTED)
 
@@ -101,7 +59,7 @@ int main(int argc, char *argv[])
     usb_start_monitoring();
 #endif
     /* SDL ports pump events from button_get(), so the UI stays on this thread */
-    ui_run();
+    classicos_host_run();
     return 0;
 }
 
@@ -112,7 +70,7 @@ static unsigned char ui_stack[UI_STACK_SIZE] CACHEALIGN_ATTR;
 
 static void ui_thread(void)
 {
-    ui_run();
+    classicos_host_run();
     panicf("ui exited");
 }
 

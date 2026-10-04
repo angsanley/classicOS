@@ -15,6 +15,7 @@
 #include "buffering.h"
 #include "playback.h"
 #include "services.h"
+#include "appevents.h"
 #ifdef HAVE_ALBUMART
 #include "bmp.h"
 #include "albumart.h"
@@ -43,17 +44,36 @@ struct pocketjs_system {
     int32_t month;
 };
 
+/* audio_current_track() fills the playing track's metadata on demand. Asked
+ * before that track's buffers are ready, it caches a path-only fallback, so
+ * only ask once playback says the track is ready (like the Rockbox WPS does
+ * after its track-change event). Set from the audio thread. */
+static volatile bool track_ready;
+
+static void on_playback_start(unsigned short id, void *data)
+{
+    (void)id; (void)data;
+    track_ready = false;
+}
+
+static void on_track_ready(unsigned short id, void *data)
+{
+    (void)id; (void)data;
+    track_ready = true;
+}
+
 void pocketjs_host_playback(struct pocketjs_playback *out)
 {
     int status = audio_status();
-    struct mp3entry *id3 = (status & AUDIO_STATUS_PLAY) ? audio_current_track() : NULL;
+    struct mp3entry *id3 = (status & AUDIO_STATUS_PLAY) && track_ready ? audio_current_track() : NULL;
 
     memset(out, 0, sizeof(*out));
     out->volume = global_status.volume;
     out->shuffle = global_settings.playlist_shuffle;
+    if (status & AUDIO_STATUS_PLAY)
+        out->status = (status & AUDIO_STATUS_PAUSE) ? 2 : 1;
     if (!id3)
         return;
-    out->status = (status & AUDIO_STATUS_PAUSE) ? 2 : 1;
     out->index = playlist_get_display_index() - 1;
     out->elapsed_ms = id3->elapsed;
     out->duration_ms = id3->length;
@@ -93,6 +113,9 @@ static int aa_slot = -1;
 
 void classicos_services_init(void)
 {
+    add_event(PLAYBACK_EVENT_START_PLAYBACK, on_playback_start);
+    add_event(PLAYBACK_EVENT_CUR_TRACK_READY, on_track_ready);
+    add_event(PLAYBACK_EVENT_TRACK_CHANGE, on_track_ready);
 #ifdef HAVE_ALBUMART
     /* Matches ART_SIZE in pocketjs/hosts/rockbox/src/services.rs: PocketJS
      * textures are power-of-two squares. */

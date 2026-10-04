@@ -152,12 +152,24 @@ static void draw_hud(struct perf *perf, bool boosted)
 
 static void usb_mode(void)
 {
+    char line[32];
+    long ev;
+    int y = 24;
+
     lcd_clear_display();
     lcd_putsxy(8, 8, "USB connected");
     lcd_update();
     usb_acknowledge(SYS_USB_CONNECTED_ACK, button_get_data());
-    while (button_get(true) != SYS_USB_DISCONNECTED)
-        ;
+    /* on-screen event log while chasing the "stuck in USB mode
+     * after unplug" bug on hardware; drop once fixed */
+    while ((ev = button_get(true)) != SYS_USB_DISCONNECTED) {
+        snprintf(line, sizeof(line), "ev %08lx", ev);
+        if (y > LCD_HEIGHT - 12)
+            y = 24;
+        lcd_putsxy(8, y, line);
+        lcd_update();
+        y += 10;
+    }
     pocketjs_invalidate();
 }
 

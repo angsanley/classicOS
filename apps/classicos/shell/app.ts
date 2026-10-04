@@ -10,6 +10,9 @@ import { system } from "@pocketjs/framework/rockbox/system/model";
 
 export const [status, setStatus] = createSignal<string>("stopped");
 export const [title, setTitle] = createSignal<string>("");
+export const [titleWidth, setTitleWidth] = createSignal<i32>(0);
+/** Marquee scroll offset of a title wider than TITLE_BOX, px */
+export const [titleOffset, setTitleOffset] = createSignal<i32>(0);
 export const [artist, setArtist] = createSignal<string>("");
 export const [elapsedMs, setElapsedMs] = createSignal<i32>(0);
 export const [durationMs, setDurationMs] = createSignal<i32>(0);
@@ -26,30 +29,65 @@ export const [battery, setBattery] = createSignal<i32>(100);
 const WEEKDAYS: string[] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS: string[] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-// MicroTS tasks need a bounded loop; this bound outlasts any battery.
+// One task (a component gets one onMount): ticks every 33 ms for the
+// marquee and polls the host services every 8th tick (~4 Hz). MicroTS tasks
+// need a bounded loop; this bound outlasts any battery.
 export async function poll(): Promise<void> {
   for (let step: i32 = 0; step < 2147483647; step++) {
-    const p = await playback.snapshot();
-    if (p.kind === "ok") {
-      setStatus(p.status);
-      setTitle(p.title);
-      setArtist(p.artist);
-      setElapsedMs(p.elapsedMs);
-      setDurationMs(p.durationMs);
-      setArt(p.art);
-      setArtTop(p.art !== "" ? p.artTop : "#5b6270");
-      setArtBottom(p.art !== "" ? p.artBottom : "#16181c");
+    marqueeTick();
+    if (imod(step, 8) === 0) {
+      const p = await playback.snapshot();
+      if (p.kind === "ok") {
+        setStatus(p.status);
+        setTitle(p.title);
+        setTitleWidth(p.titleWidth);
+        setArtist(p.artist);
+        setElapsedMs(p.elapsedMs);
+        setDurationMs(p.durationMs);
+        setArt(p.art);
+        setArtTop(p.art !== "" ? p.artTop : "#5b6270");
+        setArtBottom(p.art !== "" ? p.artBottom : "#16181c");
+      }
+      const s = await system.snapshot();
+      if (s.kind === "ok") {
+        setHour(s.hour);
+        setMinute(s.minute);
+        setWeekday(s.weekday);
+        setDay(s.day);
+        setMonth(s.month);
+        setBattery(s.batteryPercent);
+      }
     }
-    const s = await system.snapshot();
-    if (s.kind === "ok") {
-      setHour(s.hour);
-      setMinute(s.minute);
-      setWeekday(s.weekday);
-      setDay(s.day);
-      setMonth(s.month);
-      setBattery(s.batteryPercent);
-    }
-    await after(250);
+    await after(33);
+  }
+}
+
+/** Title box width in the now-playing card, px */
+export const TITLE_BOX: i32 = 268;
+
+// iOS-style marquee for titles wider than TITLE_BOX: the view renders the
+// title twice, MARQUEE_GAP apart; scrolling by one title + gap lands on the
+// second copy, so the loop restarts invisibly. Rests at the start, moves
+// ~30 px/s. Advanced once per 33 ms tick by poll().
+export const MARQUEE_GAP: i32 = 40;
+const REST_TICKS: i32 = 60;
+let marqueeTitle: string = "";
+let marqueeRest: i32 = REST_TICKS;
+
+function marqueeTick(): void {
+  if (title() !== marqueeTitle) {
+    marqueeTitle = title();
+    marqueeRest = REST_TICKS;
+    setTitleOffset(0);
+  } else if (titleFits()) {
+    return;
+  } else if (marqueeRest > 0) {
+    marqueeRest -= 1;
+  } else if (titleOffset() < titleWidth() + MARQUEE_GAP) {
+    setTitleOffset(titleOffset() + 1);
+  } else {
+    marqueeRest = REST_TICKS;
+    setTitleOffset(0);
   }
 }
 
@@ -60,5 +98,6 @@ function pad2(n: i32): string {
 export const time = createMemo<string>(() => `${hour()}:${pad2(minute())}`);
 export const date = createMemo<string>(() => `${WEEKDAYS[imod(weekday(), 7)]} ${day()} ${MONTHS[imod(month() - 1, 12)]}`);
 export const hasTrack = createMemo<boolean>(() => status() !== "stopped");
+export const titleFits = createMemo<boolean>(() => titleWidth() <= TITLE_BOX);
 /** Progress bar width in px for a 268 px track. */
 export const progressPx = createMemo<i32>(() => (durationMs() > 0 ? idiv(elapsedMs() * 268, durationMs()) : 0));

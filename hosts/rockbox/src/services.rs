@@ -216,9 +216,13 @@ fn string(s: &str) -> Value {
     Value::String(String::from(s))
 }
 
-fn text(bytes: &[u8]) -> Value {
+fn cstr(bytes: &[u8]) -> &str {
     let end = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
-    string(core::str::from_utf8(&bytes[..end]).unwrap_or(""))
+    core::str::from_utf8(&bytes[..end]).unwrap_or("")
+}
+
+fn text(bytes: &[u8]) -> Value {
+    string(cstr(bytes))
 }
 
 fn object(fields: Vec<(&str, Value)>) -> Value {
@@ -231,6 +235,10 @@ fn art_color(top: bool) -> Value {
     let color = if art.texture < 0 { NO_ART_COLOR } else if top { &art.colors.0 } else { &art.colors.1 };
     string(color)
 }
+
+/// Font slot of the title the shell measures for its marquee: text-sm
+/// font-bold (14 px bold, see fontSlotFor in framework/compiler/tailwind.ts).
+const TITLE_FONT_SLOT: u8 = 8;
 
 fn playback(ui: &mut Ui) -> Value {
     // SAFETY: plain-old-data struct; C fills every field.
@@ -247,6 +255,7 @@ fn playback(ui: &mut Ui) -> Value {
         ("index", Value::I32(p.index)),
         ("path", text(&p.path)),
         ("title", text(&p.title)),
+        ("titleWidth", Value::I32(ui.core().measure_text(cstr(&p.title), TITLE_FONT_SLOT) as i32)),
         ("artist", text(&p.artist)),
         ("album", text(&p.album)),
         ("elapsedMs", Value::I32(p.elapsed_ms)),

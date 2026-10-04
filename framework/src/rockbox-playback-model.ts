@@ -11,6 +11,8 @@ export type PlaybackResult =
       index: i32;
       path: string;
       title: string;
+      /** Rendered width of title in text-sm bold, px (classicOS) */
+      titleWidth: i32;
       artist: string;
       album: string;
       elapsedMs: i32;

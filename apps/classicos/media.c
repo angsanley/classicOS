@@ -12,29 +12,40 @@
 
 #define MUSIC_DIR "/Music"
 
-/* queues the audio files directly in /Music (no subfolders) until
- * the Music app picks what to play. */
-static void play_music_dir(void)
+/* Queues audio files under dir, descending `depth` more folder levels.
+ * Returns the number queued. */
+static int queue_dir(const char *dir, int depth)
 {
-    char path[MAX_PATH + sizeof(MUSIC_DIR)];
+    char path[MAX_PATH];
     struct dirent *e;
-    DIR *dir = opendir(MUSIC_DIR);
+    DIR *d = opendir(dir);
     int n = 0;
 
-    if (!dir)
-        return;
-    playlist_create(MUSIC_DIR, NULL);
-    while ((e = readdir(dir))) {
+    if (!d)
+        return 0;
+    while ((e = readdir(d))) {
         if (e->d_name[0] == '.')
             continue;
-        snprintf(path, sizeof(path), MUSIC_DIR "/%s", e->d_name);
-        if (probe_file_format(path) == AFMT_UNKNOWN)
+        if (snprintf(path, sizeof(path), "%s/%s", dir, e->d_name) >= (int)sizeof(path))
             continue;
-        if (playlist_insert_track(NULL, path, PLAYLIST_INSERT_LAST, false, false) >= 0)
+        if (dir_get_info(d, e).attribute & ATTR_DIRECTORY) {
+            if (depth > 0)
+                n += queue_dir(path, depth - 1);
+        } else if (probe_file_format(path) != AFMT_UNKNOWN &&
+                   playlist_insert_track(NULL, path, PLAYLIST_INSERT_LAST, false, false) >= 0) {
             n++;
+        }
     }
-    closedir(dir);
-    if (n > 0) {
+    closedir(d);
+    return n;
+}
+
+/* plays everything under /Music (Artist/Album deep) in directory
+ * order until the Music app picks what to play. */
+static void play_music_dir(void)
+{
+    playlist_create(MUSIC_DIR, NULL);
+    if (queue_dir(MUSIC_DIR, 2) > 0) {
         playlist_sync(NULL);
         playlist_start(0, 0, 0);
     }

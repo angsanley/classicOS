@@ -1,7 +1,9 @@
 #!/bin/sh
-# Install a classicOS build on a mounted iPod running the Rockbox bootloader.
+# Install a classicOS build (firmware, codecs, app data) on a mounted iPod
+# running the Rockbox bootloader.
 #   apps/classicos/deploy.sh <build dir> "/Volumes/<iPod>"
-# Backs up the existing firmware to .rockbox/rockbox.ipod.orig once. Only
+# Backs up the existing firmware and codecs (rockbox.ipod.orig, codecs.orig)
+# once, so the previous Rockbox can be restored. Only
 # .rockbox/ is touched; the bootloader and Apple firmware stay as they are.
 set -e
 B="$1"; V="$2"
@@ -9,6 +11,10 @@ B="$1"; V="$2"
 [ -d "$V/.rockbox" ] || { echo "not a Rockbox iPod: $V"; exit 1; }
 [ -f "$V/.rockbox/rockbox.ipod.orig" ] || cp "$V/.rockbox/rockbox.ipod" "$V/.rockbox/rockbox.ipod.orig"
 cp "$B/rockbox.ipod" "$V/.rockbox/rockbox.ipod"
+# Codecs must match the firmware's codec API version.
+[ -d "$V/.rockbox/codecs.orig" ] || [ ! -d "$V/.rockbox/codecs" ] || cp -R "$V/.rockbox/codecs" "$V/.rockbox/codecs.orig"
+mkdir -p "$V/.rockbox/codecs"
+cp "$B"/lib/rbcodec/codecs/*.codec "$V/.rockbox/codecs/"
 mkdir -p "$V/.rockbox/classicos"
 cp -R "$B/classicos/data/." "$V/.rockbox/classicos/"
 sync

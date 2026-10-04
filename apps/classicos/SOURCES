@@ -26,3 +26,4 @@ settings.c
 ../recorder/albumart.c
 #endif
 media.c
+services.c

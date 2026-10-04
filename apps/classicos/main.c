@@ -20,6 +20,7 @@
 #include "panic.h"
 #include "file_internal.h"
 #include "host.h"
+#include "services.h"
 #include "settings.h"
 #include "settings_classicos.h"
 #include "pcm.h"
@@ -66,6 +67,7 @@ int main(int argc, char *argv[])
     sound_settings_apply();
     playlist_init();
     audio_init();
+    classicos_services_init();
 #ifndef USB_NONE
     usb_init();
     usb_start_monitoring();
@@ -132,6 +134,7 @@ int main(void)
     sound_settings_apply();
     playlist_init();
     audio_init();
+    classicos_services_init();
 
 #ifndef USB_NONE
     usb_start_monitoring();

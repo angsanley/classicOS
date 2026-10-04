@@ -32,9 +32,16 @@ bool settings_parseline(char *line, char **name, char **value)
     return false;
 }
 
+/* From apps/misc.c. Metadata parsing maps tag names through this, so a
+ * stub silently drops every title/artist/album. */
 int string_option(const char *option, const char *const oplist[], bool ignore_case)
 {
-    (void)option; (void)oplist; (void)ignore_case;
+    const char *op;
+    int (*cmp_fn)(const char *, const char *) = ignore_case ? strcasecmp : strcmp;
+
+    for (int i = 0; (op = oplist[i]) != NULL; i++)
+        if (cmp_fn(op, option) == 0)
+            return i;
     return -1;
 }
 

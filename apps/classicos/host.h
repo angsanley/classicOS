@@ -1,7 +1,9 @@
 /* PocketJS host loop (host.c) */
 void classicos_host_run(void);
 
-#define UI_STACK_SIZE (256 * 1024)
+/* HUD showed a 24-27K high-water mark; overflow panics ("Stkov") on the next
+ * thread switch, so this fails loudly if a deeper UI needs more. */
+#define UI_STACK_SIZE (64 * 1024)
 #if (CONFIG_PLATFORM & PLATFORM_NATIVE)
 extern unsigned char ui_stack[UI_STACK_SIZE];
 #endif

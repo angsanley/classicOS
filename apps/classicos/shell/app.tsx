@@ -12,6 +12,8 @@ import { ActionHandler, AxisHandler, Image, Text, View } from "@pocketjs/framewo
 import { BTN } from "@pocketjs/framework/input";
 import { onMount } from "@pocketjs/framework/solid/lifecycle";
 import {
+  available, back, backlightIndex, backlightLabel, backlightOption, backlightSelect, backlightWheel,
+  batteryText, brightnessPx, clicker, brightnessWheel, capacity, settingsIndex, settingsSelect, settingsWheel, version,
   album, art, artBottom, artTop, artist, badge, batteryPx, date, elapsed, hasTrack,
   homeIndex, homeSelect, homeWheel, musicIndex, musicScroll, musicSelect, musicWheel, nowPlayingLine, openHome, poll, progressPx,
   remaining, screen, status, time, title, marqueeFits, marqueeOffset,
@@ -19,6 +21,10 @@ import {
 } from "./app";
 import Home from "./Home.tsx";
 import Music from "./Music.tsx";
+import About from "./About.tsx";
+import Backlight from "./Backlight.tsx";
+import Brightness from "./Brightness.tsx";
+import Settings from "./Settings.tsx";
 import StatusBar from "./StatusBar.tsx";
 
 export default function Shell() {
@@ -38,7 +44,35 @@ export default function Shell() {
         <Music
           selected={musicIndex()} scroll={musicScroll()}
           status={status()} time={time()} batteryPx={batteryPx()}
-          onWheel={(delta) => musicWheel(delta)} onSelect={() => musicSelect()} onBack={() => openHome()}
+          onWheel={(delta) => musicWheel(delta)} onSelect={() => musicSelect()} onBack={() => back()}
+        />
+      </Match>
+      <Match when={screen() === "settings"}>
+        <Settings
+          selected={settingsIndex()} backlight={backlightLabel()} clicker={clicker()}
+          status={status()} time={time()} batteryPx={batteryPx()}
+          onWheel={(delta) => settingsWheel(delta)} onSelect={() => settingsSelect()} onBack={() => back()}
+        />
+      </Match>
+      <Match when={screen() === "brightness"}>
+        <Brightness
+          fillPx={brightnessPx()}
+          status={status()} time={time()} batteryPx={batteryPx()}
+          onWheel={(delta) => brightnessWheel(delta)} onBack={() => back()}
+        />
+      </Match>
+      <Match when={screen() === "backlight"}>
+        <Backlight
+          selected={backlightIndex()} current={backlightOption()}
+          status={status()} time={time()} batteryPx={batteryPx()}
+          onWheel={(delta) => backlightWheel(delta)} onSelect={() => backlightSelect()} onBack={() => back()}
+        />
+      </Match>
+      <Match when={screen() === "about"}>
+        <About
+          version={version()} capacity={capacity()} available={available()} battery={batteryText()}
+          status={status()} time={time()} batteryPx={batteryPx()}
+          onBack={() => back()}
         />
       </Match>
       <Match when={screen() === "now"}>
@@ -47,7 +81,7 @@ export default function Shell() {
           style={{ gradFrom: artTop(), gradTo: artBottom() }}
         >
           <AxisHandler axis="primary" onDelta={(delta) => wheel(delta)} />
-          <ActionHandler button={BTN.CROSS} onPress={() => openHome()} />
+          <ActionHandler button={BTN.CROSS} latched onPress={() => openHome()} />
           {/* Dims the art-derived gradient so white text stays readable. */}
           <View class="absolute inset-0 bg-[#00000040]" />
 

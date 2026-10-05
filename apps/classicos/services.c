@@ -17,6 +17,9 @@
 #include "playback.h"
 #include "services.h"
 #include "appevents.h"
+#include "mv.h"
+#include "rbversion.h"
+#include "settings_classicos.h"
 #ifdef HAVE_ALBUMART
 #include "bmp.h"
 #include "albumart.h"
@@ -48,6 +51,17 @@ struct pocketjs_system {
     int32_t weekday;
     int32_t day;
     int32_t month;
+    int32_t brightness;
+    int32_t brightness_min;
+    int32_t brightness_max;
+    int32_t backlight; /* seconds, 0 = always on */
+    int32_t clicker;
+};
+
+struct pocketjs_about {
+    char version[32];
+    int32_t disk_mb;
+    int32_t free_mb;
 };
 
 /* audio_current_track() fills the playing track's metadata on demand. Asked
@@ -126,6 +140,43 @@ void pocketjs_host_system(struct pocketjs_system *out)
     out->weekday = tm->tm_wday;
     out->day = tm->tm_mday;
     out->month = tm->tm_mon + 1;
+    out->brightness = classicos_brightness();
+#ifdef HAVE_BACKLIGHT_BRIGHTNESS
+    out->brightness_min = MIN_BRIGHTNESS_SETTING;
+    out->brightness_max = MAX_BRIGHTNESS_SETTING;
+#else
+    out->brightness_min = out->brightness_max = out->brightness;
+#endif
+    out->backlight = classicos_backlight();
+    out->clicker = classicos_clicker();
+}
+
+int32_t pocketjs_host_set_clicker(int32_t on)
+{
+    return classicos_set_clicker(on);
+}
+
+int32_t pocketjs_host_set_brightness(int32_t level)
+{
+    return classicos_set_brightness(level);
+}
+
+int32_t pocketjs_host_set_backlight(int32_t seconds)
+{
+    return classicos_set_backlight(seconds);
+}
+
+/* Static facts for Settings > About. Sizes come from the FAT's cached free
+ * count, so this does not touch the disk. */
+void pocketjs_host_about(struct pocketjs_about *out)
+{
+    sector_t size_kib, free_kib;
+
+    memset(out, 0, sizeof(*out));
+    strlcpy(out->version, RBVERSION, sizeof(out->version));
+    volume_size(IF_MV(0,) &size_kib, &free_kib);
+    out->disk_mb = size_kib / 1024;
+    out->free_mb = free_kib / 1024;
 }
 
 #ifdef HAVE_ALBUMART

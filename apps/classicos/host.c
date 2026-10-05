@@ -17,6 +17,10 @@
 #include "host.h"
 #include "media.h"
 #include "core_alloc.h"
+#include "settings_classicos.h"
+#ifdef HAVE_HARDWARE_CLICK
+#include "piezo.h"
+#endif
 
 #define DATA_DIR ROCKBOX_DIR "/classicos"
 
@@ -150,11 +154,21 @@ static void draw_hud(struct perf *perf, bool boosted)
 #define HUD_H 0
 #endif
 
+/* The classic iPod click, on the piezo: one per wheel step and per press. */
+static void click(void)
+{
+#if defined(HAVE_HARDWARE_CLICK) && !defined(SIMULATOR)
+    if (classicos_clicker())
+        piezo_button_beep(false, false);
+#endif
+}
+
 static void usb_mode(void)
 {
     lcd_clear_display();
     lcd_putsxy(8, 8, "USB connected");
     lcd_update();
+    classicos_settings_flush();
     usb_acknowledge(SYS_USB_CONNECTED_ACK, button_get_data());
     while (button_get(true) != SYS_USB_DISCONNECTED)
         ;
@@ -197,8 +211,10 @@ void classicos_host_run(void)
         for (; b != BUTTON_NONE; b = button_get(false)) {
             if (b == SYS_USB_CONNECTED)
                 usb_mode();
-            else if (b == SYS_POWEROFF)
+            else if (b == SYS_POWEROFF) {
+                classicos_settings_flush();
                 shutdown_hw(SHUTDOWN_POWER_OFF);
+            }
             else if (b == BUTTON_PLAY)
                 play_down = frame_start;
             else if (b == (BUTTON_PLAY | BUTTON_REL)) {
@@ -216,6 +232,11 @@ void classicos_host_run(void)
                 else if (b & BUTTON_SCROLL_BACK)
                     wheel--;
             }
+            /* Wheel steps can arrive flagged as repeats; a held button's
+             * repeats stay silent. */
+            if (!(b & (SYS_EVENT | BUTTON_REL)) &&
+                (!(b & BUTTON_REPEAT) || (b & (BUTTON_SCROLL_FWD | BUTTON_SCROLL_BACK))))
+                click();
         }
 
         /* hold Play = power off until Control Center exists */

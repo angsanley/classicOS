@@ -27,6 +27,9 @@
 #include "dsp_core.h"
 #include "playlist.h"
 #include "audio.h"
+#ifdef HAVE_HARDWARE_CLICK
+#include "piezo.h"
+#endif
 
 #if (CONFIG_PLATFORM & PLATFORM_NATIVE)
 #include "i2c.h"
@@ -125,6 +128,9 @@ int main(void)
     if (disk_mount_all() <= 0)
         panicf("no filesystem");
     init_battery_tables();
+#ifdef HAVE_HARDWARE_CLICK
+    piezo_init();
+#endif
     classicos_settings_init();
 #if defined(HAVE_USB_CHARGING_ENABLE) && defined(HAVE_USBSTACK)
     usb_charging_enable(global_settings.usb_charging);

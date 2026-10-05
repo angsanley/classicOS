@@ -1,0 +1,61 @@
+// Settings > Backlight: how long the backlight stays on. The checkmark marks
+// the current timeout; Select picks the selected row and goes back, Menu
+// goes back unchanged. Rows match BACKLIGHT_SECONDS in app.ts.
+
+import { Show } from "solid-js";
+import { ActionHandler, AxisHandler, Image, View } from "@pocketjs/framework/solid/components";
+import { BTN } from "@pocketjs/framework/input";
+import type { i32 } from "@pocketjs/framework/solid/std";
+import MenuRow from "./MenuRow.tsx";
+import StatusBar from "./StatusBar.tsx";
+
+export default function Backlight(props: {
+  selected: i32;
+  /** Row of the current timeout, -1 if none matches */
+  current: i32;
+  status: string;
+  time: string;
+  batteryPx: i32;
+  onWheel: (delta: i32) => void;
+  onSelect: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <View class="w-full h-full bg-[#f2f2f7]">
+      <AxisHandler axis="primary" onDelta={(delta) => props.onWheel(delta)} />
+      <ActionHandler button={BTN.CIRCLE} latched onPress={() => props.onSelect()} />
+      <ActionHandler button={BTN.CROSS} latched onPress={() => props.onBack()} />
+      <StatusBar title="Backlight" dark status={props.status} time={props.time} clock batteryPx={props.batteryPx} />
+      <View class="absolute top-[34] left-[12] w-[296] flex-col gap-[4]">
+        <MenuRow selected={props.selected} index={0} label="10 seconds" subtitle="" subtitleFits subtitleOffset={0} value="">
+          <View class="w-[24] h-[24]">
+            <Show when={props.current === 0}>
+              <Image src="icons/check.svg" class="w-[24] h-[24]" />
+            </Show>
+          </View>
+        </MenuRow>
+        <MenuRow selected={props.selected} index={1} label="30 seconds" subtitle="" subtitleFits subtitleOffset={0} value="">
+          <View class="w-[24] h-[24]">
+            <Show when={props.current === 1}>
+              <Image src="icons/check.svg" class="w-[24] h-[24]" />
+            </Show>
+          </View>
+        </MenuRow>
+        <MenuRow selected={props.selected} index={2} label="1 minute" subtitle="" subtitleFits subtitleOffset={0} value="">
+          <View class="w-[24] h-[24]">
+            <Show when={props.current === 2}>
+              <Image src="icons/check.svg" class="w-[24] h-[24]" />
+            </Show>
+          </View>
+        </MenuRow>
+        <MenuRow selected={props.selected} index={3} label="Always On" subtitle="" subtitleFits subtitleOffset={0} value="">
+          <View class="w-[24] h-[24]">
+            <Show when={props.current === 3}>
+              <Image src="icons/check.svg" class="w-[24] h-[24]" />
+            </Show>
+          </View>
+        </MenuRow>
+      </View>
+    </View>
+  );
+}

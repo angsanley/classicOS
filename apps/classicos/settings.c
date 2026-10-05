@@ -1,6 +1,6 @@
-/* Audio defaults for the Rockbox playback engine. classicOS has no settings
- * file yet, so global_settings starts from these values on every boot.
- * Based on CrazyPod's crazypod_audio_settings_init(). */
+/* Settings: audio defaults for the Rockbox playback engine (based on
+ * CrazyPod's crazypod_audio_settings_init()) and the user's display prefs,
+ * saved to PREFS_FILE. global_settings itself is not persisted. */
 
 #include "config.h"
 #include <limits.h>
@@ -9,26 +9,125 @@
 #include "sound.h"
 #include "usb.h"
 #include "backlight.h"
+#include "file.h"
+#include "ata_idle_notify.h"
 #include "settings_classicos.h"
+
+#define PREFS_FILE ROCKBOX_DIR "/classicos/settings.bin"
+#define PREFS_VERSION 2
+
+/* What the Settings app changes. Bump PREFS_VERSION when the layout changes;
+ * an old or missing file falls back to these defaults. */
+static struct prefs {
+    uint8_t version;
+    uint8_t brightness;  /* MIN_BRIGHTNESS_SETTING..MAX_BRIGHTNESS_SETTING */
+    int16_t backlight;   /* seconds, 0 = always on */
+    uint8_t clicker;     /* piezo click on wheel steps and presses */
+} prefs = { PREFS_VERSION, 28, 30, 1 };
+static bool prefs_dirty;
 
 struct user_settings global_settings;
 struct system_status global_status;
 
-/* Display defaults, applied at boot (stock Rockbox does this from its
- * settings file). Rockbox's default brightness (16/32) is too dim on the 5G,
- * and an unset LCD sleep timeout means "sleep the next tick after the
- * backlight goes off". fixed values until a Settings screen. */
-static void display_settings_apply(void)
+static void prefs_load(void)
+{
+    struct prefs saved;
+    int fd = open(PREFS_FILE, O_RDONLY);
+    if (fd < 0)
+        return;
+    if (read(fd, &saved, sizeof(saved)) == sizeof(saved) && saved.version == PREFS_VERSION)
+        prefs = saved;
+    close(fd);
+}
+
+/* Runs when the disk next goes idle (see prefs_changed) and at power-off. */
+static void prefs_save(void)
+{
+    int fd;
+    if (!prefs_dirty)
+        return;
+    prefs_dirty = false;
+    fd = open(PREFS_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (fd < 0)
+        return;
+    write(fd, &prefs, sizeof(prefs));
+    close(fd);
+}
+
+/* Saves on the next disk spin-down instead of spinning the disk up now, so a
+ * wheel turn through brightness levels costs no I/O (as Rockbox's settings). */
+static void prefs_changed(void)
+{
+    prefs_dirty = true;
+    register_storage_idle_func(prefs_save);
+}
+
+void classicos_settings_flush(void)
+{
+    prefs_save();
+}
+
+int classicos_brightness(void)
+{
+    return prefs.brightness;
+}
+
+int classicos_backlight(void)
+{
+    return prefs.backlight;
+}
+
+int classicos_clicker(void)
+{
+    return prefs.clicker;
+}
+
+int classicos_set_clicker(int on)
+{
+    on = on != 0;
+    if (on != prefs.clicker) {
+        prefs.clicker = on;
+        prefs_changed();
+    }
+    return prefs.clicker;
+}
+
+int classicos_set_brightness(int level)
 {
 #ifdef HAVE_BACKLIGHT_BRIGHTNESS
-    backlight_set_brightness(28);
+    level = MAX(MIN_BRIGHTNESS_SETTING, MIN(MAX_BRIGHTNESS_SETTING, level));
+    backlight_set_brightness(level);
+    if (level != prefs.brightness) {
+        prefs.brightness = level;
+        prefs_changed();
+    }
 #endif
+    return prefs.brightness;
+}
+
+int classicos_set_backlight(int seconds)
+{
+    seconds = MAX(0, MIN(3600, seconds));
 #ifdef HAVE_BACKLIGHT
-    backlight_set_timeout(30);
+    backlight_set_timeout(seconds);
 #if CONFIG_CHARGING
-    backlight_set_timeout_plugged(60);
+    backlight_set_timeout_plugged(seconds);
 #endif
 #endif
+    if (seconds != prefs.backlight) {
+        prefs.backlight = seconds;
+        prefs_changed();
+    }
+    return prefs.backlight;
+}
+
+/* An unset LCD sleep timeout means "sleep the next tick after the backlight
+ * goes off", so it is always set. */
+static void display_settings_apply(void)
+{
+    prefs_load();
+    classicos_set_brightness(prefs.brightness);
+    classicos_set_backlight(prefs.backlight);
 #ifdef HAVE_LCD_SLEEP_SETTING
     lcd_set_sleep_after_backlight_off(10);
 #endif

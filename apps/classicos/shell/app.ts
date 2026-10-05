@@ -35,6 +35,16 @@ export const [volume, setVolume] = createSignal<i32>(-25);
 export const [volumeMin, setVolumeMin] = createSignal<i32>(-89);
 export const [volumeMax, setVolumeMax] = createSignal<i32>(6);
 export const [volumeShown, setVolumeShown] = createSignal<boolean>(false);
+/** Display settings from the host: backlight level and range, timeout in s (0 = always on) */
+export const [brightness, setBrightness] = createSignal<i32>(28);
+export const [brightnessMin, setBrightnessMin] = createSignal<i32>(1);
+export const [brightnessMax, setBrightnessMax] = createSignal<i32>(32);
+export const [backlight, setBacklight] = createSignal<i32>(30);
+export const [clicker, setClicker] = createSignal<boolean>(true);
+/** Settings > About, fetched when About opens */
+export const [version, setVersion] = createSignal<string>("");
+export const [diskMb, setDiskMb] = createSignal<i32>(0);
+export const [freeMb, setFreeMb] = createSignal<i32>(0);
 
 const WEEKDAYS: string[] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS: string[] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -57,6 +67,30 @@ export async function poll(): Promise<void> {
       const v = await playback.setVolume(volume());
       // Ignore the reply if the wheel moved again meanwhile; it is stale.
       if (v.kind === "ok" && !volumePending) setVolume(v.volume);
+    }
+    if (brightnessPending) {
+      brightnessPending = false;
+      const b = await system.setBrightness(brightness());
+      if (b.kind === "ok" && !brightnessPending) setBrightness(b.value);
+    }
+    if (backlightPending) {
+      backlightPending = false;
+      const t = await system.setBacklight(backlight());
+      if (t.kind === "ok" && !backlightPending) setBacklight(t.value);
+    }
+    if (clickerPending) {
+      clickerPending = false;
+      const c = await system.setClicker(clicker() ? 1 : 0);
+      if (c.kind === "ok" && !clickerPending) setClicker(c.value !== 0);
+    }
+    if (aboutWanted) {
+      aboutWanted = false;
+      const a = await system.about();
+      if (a.kind === "ok") {
+        setVersion(a.version);
+        setDiskMb(a.diskMb);
+        setFreeMb(a.freeMb);
+      }
     }
     if (imod(step, 8) === 0) {
       const p = await playback.snapshot();
@@ -85,6 +119,11 @@ export async function poll(): Promise<void> {
         setDay(s.day);
         setMonth(s.month);
         setBattery(s.batteryPercent);
+        setBrightnessMin(s.brightnessMin);
+        setBrightnessMax(s.brightnessMax);
+        if (!brightnessPending) setBrightness(s.brightness);
+        if (!backlightPending) setBacklight(s.backlight);
+        if (!clickerPending) setClicker(s.clicker);
       }
     }
     await after(33);
@@ -215,7 +254,7 @@ export const progressPx = createMemo<i32>(() => (durationMs() > 0 ? idiv(elapsed
 // Switch unmounts the rest). Select opens, Menu goes back: Music -> Home ->
 // Now Playing. Back targets are fixed until the library browser needs a stack.
 
-/** "now", "home" or "music" */
+/** "now", "home", "music", "settings", "brightness", "backlight" or "about" */
 export const [screen, setScreen] = createSignal<string>("now");
 
 /** Home rows: Now Playing, Music, Settings */
@@ -246,6 +285,15 @@ function go(to: string): void {
   if (to !== "now") idleReturn();
 }
 
+/** Forward into a list: it starts at the top. Going back keeps its place. */
+function open(to: string): void {
+  if (to === "music") {
+    setMusicIndex(0);
+    setMusicScroll(0);
+  } else if (to === "settings") setSettingsIndex(0);
+  go(to);
+}
+
 function step(index: i32, delta: i32, count: i32): i32 {
   const next = index + idiv(delta, WHEEL_STEP);
   return next < 0 ? 0 : next >= count ? count - 1 : next;
@@ -269,16 +317,21 @@ export function homeWheel(delta: i32): void {
 }
 
 export function homeSelect(): void {
-  // Settings is not built yet
   if (homeIndex() === 0) go("now");
-  else if (homeIndex() === 1) go("music");
-  else go("home");
+  else if (homeIndex() === 1) open("music");
+  else open("settings");
 }
 
 export function musicWheel(delta: i32): void {
   setMusicIndex(step(musicIndex(), delta, MUSIC_ITEMS));
   setMusicScroll(scrollTo(musicIndex(), musicScroll()));
   go("music");
+}
+
+/** Menu: Settings' pages go back to Settings, the apps to Home. */
+export function back(): void {
+  const s = screen();
+  go(s === "brightness" || s === "backlight" || s === "about" ? "settings" : "home");
 }
 
 export function musicSelect(): void {
@@ -292,3 +345,77 @@ export function musicSelect(): void {
 export const marqueeText = createMemo<string>(() => (screen() === "home" ? (homeIndex() === 0 ? nowPlayingLine() : "") : title()));
 const marqueeSlot = createMemo<i32>(() => (screen() === "home" ? 0 : 11));
 export const marqueeFits = createMemo<boolean>(() => marqueeWidth() <= (screen() === "home" ? LINE_BOX : TITLE_BOX));
+
+// Settings: Brightness (a level screen), Backlight (a picker), Clicker (a
+// switch), About.
+const SETTINGS_ITEMS: i32 = 4;
+export const [settingsIndex, setSettingsIndex] = createSignal<i32>(0);
+/** Picker cursor on the Backlight page */
+export const [backlightIndex, setBacklightIndex] = createSignal<i32>(0);
+/** Backlight picker options in s, 0 = always on, and their labels */
+const BACKLIGHT_SECONDS: i32[] = [10, 30, 60, 0];
+const BACKLIGHT_LABELS: string[] = ["10 s", "30 s", "1 min", "Always"];
+/** Brightness level bar width, px */
+const BRIGHTNESS_BAR: i32 = 220;
+let brightnessPending: boolean = false;
+let backlightPending: boolean = false;
+let clickerPending: boolean = false;
+let aboutWanted: boolean = false;
+
+export function settingsWheel(delta: i32): void {
+  setSettingsIndex(step(settingsIndex(), delta, SETTINGS_ITEMS));
+  go("settings");
+}
+
+export function settingsSelect(): void {
+  if (settingsIndex() === 0) go("brightness");
+  else if (settingsIndex() === 1) {
+    setBacklightIndex(backlightOption());
+    go("backlight");
+  } else if (settingsIndex() === 2) {
+    setClicker(!clicker());
+    clickerPending = true;
+    go("settings");
+  } else {
+    aboutWanted = true;
+    go("about");
+  }
+}
+
+/** One wheel click = one backlight level */
+export function brightnessWheel(delta: i32): void {
+  const next = brightness() + idiv(delta, WHEEL_STEP);
+  setBrightness(next < brightnessMin() ? brightnessMin() : next > brightnessMax() ? brightnessMax() : next);
+  brightnessPending = true;
+  go("brightness");
+}
+
+export function backlightWheel(delta: i32): void {
+  setBacklightIndex(step(backlightIndex(), delta, len(BACKLIGHT_SECONDS)));
+  go("backlight");
+}
+
+export function backlightSelect(): void {
+  setBacklight(BACKLIGHT_SECONDS[backlightIndex()]);
+  backlightPending = true;
+  go("settings");
+}
+
+/** Picker row of the current timeout, -1 for a value not in the list */
+export const backlightOption = createMemo<i32>(() => {
+  for (let i: i32 = 0; i < len(BACKLIGHT_SECONDS); i++) {
+    if (BACKLIGHT_SECONDS[i] === backlight()) return i;
+  }
+  return -1;
+});
+export const backlightLabel = createMemo<string>(() => (backlightOption() >= 0 ? BACKLIGHT_LABELS[backlightOption()] : `${backlight()} s`));
+export const brightnessPx = createMemo<i32>(() =>
+  brightnessMax() > brightnessMin() ? idiv((brightness() - brightnessMin()) * BRIGHTNESS_BAR, brightnessMax() - brightnessMin()) : BRIGHTNESS_BAR,
+);
+
+function gigabytes(mb: i32): string {
+  return `${idiv(mb, 1024)}.${idiv(imod(mb, 1024) * 10, 1024)} GB`;
+}
+export const capacity = createMemo<string>(() => gigabytes(diskMb()));
+export const available = createMemo<string>(() => gigabytes(freeMb()));
+export const batteryText = createMemo<string>(() => `${battery()}%`);

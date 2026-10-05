@@ -4,12 +4,12 @@
 // Play/Prev/Next are hardware keys. Nothing playing: big clock.
 
 import { Show } from "solid-js";
-import { AxisHandler, Image, Text, View } from "@pocketjs/framework/solid/components";
+import { AxisHandler, For, Image, Text, View } from "@pocketjs/framework/solid/components";
 import { onMount } from "@pocketjs/framework/solid/lifecycle";
 import {
   album, art, artBottom, artTop, artist, badge, batteryPx, date, elapsed, hasTrack,
   paused, poll, progressPx, remaining, time, title, titleFits, titleOffset,
-  volumeLevel, volumePx, volumeShown, wheel,
+  volumeLevel, volumeLitPx, volumeSegments, volumeShown, wheel,
 } from "./app";
 
 export default function NowPlaying() {
@@ -87,14 +87,15 @@ export default function NowPlaying() {
             <Image src="icons/waveform.svg" class="w-[16] h-[16]" />
             <Text class="text-xs text-[#ffffffb3]">{badge()}</Text>
           </View>
+
+          <View class="absolute top-[192] left-[16] right-[16] flex-row justify-between">
+            <Text class="text-xs text-[#ffffffa6]">{elapsed()}</Text>
+            <Text class="text-xs text-[#ffffffa6]">{remaining()}</Text>
+          </View>
+          <View class="absolute top-[212] left-[16] w-[288] h-[4] rounded-[2px] bg-[#ffffff40]">
+            <View class="h-[4] rounded-[2px] bg-[#ffffffd9]" style={{ width: progressPx() }} />
+          </View>
         </Show>
-        <View class="absolute top-[192] left-[16] right-[16] flex-row justify-between">
-          <Text class="text-xs text-[#ffffffa6]">{elapsed()}</Text>
-          <Text class="text-xs text-[#ffffffa6]">{remaining()}</Text>
-        </View>
-        <View class="absolute top-[212] left-[16] w-[288] h-[4] rounded-[2px] bg-[#ffffff40]">
-          <View class="h-[4] rounded-[2px] bg-[#ffffffd9]" style={{ width: progressPx() }} />
-        </View>
       </Show>
 
       <Show when={!hasTrack()}>
@@ -104,14 +105,24 @@ export default function NowPlaying() {
         </View>
       </Show>
       <Show when={volumeShown()}>
-        {/* Volume overlay while the wheel turns (wheel = volume here). */}
-        <View class="absolute inset-0 bg-[#000000d4] flex-col items-center justify-center gap-[16]">
-          <Show when={volumeLevel() === 0}><Image src="icons/speaker_slash_fill.svg" class="w-[32] h-[32]" /></Show>
-          <Show when={volumeLevel() === 1}><Image src="icons/speaker_1_fill.svg" class="w-[32] h-[32]" /></Show>
-          <Show when={volumeLevel() === 2}><Image src="icons/speaker_2_fill.svg" class="w-[32] h-[32]" /></Show>
-          <Show when={volumeLevel() === 3}><Image src="icons/speaker_3_fill.svg" class="w-[32] h-[32]" /></Show>
-          <View class="w-[256] h-[8] rounded-[4px] bg-[#ffffff40]">
-            <View class="h-[8] rounded-[4px] bg-white" style={{ width: volumePx() }} />
+        {/* Volume HUD (macOS style): an indicator, not a slider; the wheel
+            drives it. Floats over the content. */}
+        <View class="absolute top-[184] left-[44] w-[232] h-[34] rounded-[17px] bg-[#1f1f21e0] shadow-lg flex-row items-center px-[14] gap-[10]">
+          <Show when={volumeLevel() === 0}><Image src="icons/speaker_slash_fill.svg" class="w-[16] h-[16]" /></Show>
+          <Show when={volumeLevel() === 1}><Image src="icons/speaker_1_fill.svg" class="w-[16] h-[16]" /></Show>
+          <Show when={volumeLevel() === 2}><Image src="icons/speaker_2_fill.svg" class="w-[16] h-[16]" /></Show>
+          <Show when={volumeLevel() === 3}><Image src="icons/speaker_3_fill.svg" class="w-[16] h-[16]" /></Show>
+          <View class="w-[173] h-[3]">
+            <View class="absolute top-0 left-0 flex-row gap-[3]">
+              <For each={volumeSegments()} by={(i) => i}>
+                {(_i) => <View class="w-[8] h-[3] rounded-[1px] bg-[#ffffff40]" />}
+              </For>
+            </View>
+            <View class="absolute top-0 left-0 h-[3] flex-row gap-[3] overflow-hidden" style={{ width: volumeLitPx() }}>
+              <For each={volumeSegments()} by={(i) => i}>
+                {(_i) => <View class="w-[8] h-[3] rounded-[1px] bg-white shrink-0" />}
+              </For>
+            </View>
           </View>
         </View>
       </Show>

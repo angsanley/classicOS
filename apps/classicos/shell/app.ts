@@ -180,8 +180,10 @@ export const volumeLevel = createMemo<i32>(() => {
   const third = idiv((volume() - volumeMin()) * 3, volumeSpan());
   return third >= 2 ? 3 : third + 1;
 });
-/** Volume bar fill for a 256 px track */
-export const volumePx = createMemo<i32>(() => idiv((volume() - volumeMin()) * 256, volumeSpan()));
+/** Volume HUD: 16 segments, 8 px wide with 3 px gaps (11 px pitch) */
+export const [volumeSegments, setVolumeSegments] = createSignal<i32[]>([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+/** Width of the lit part of the segment bar, px */
+export const volumeLitPx = createMemo<i32>(() => idiv((volume() - volumeMin()) * 16, volumeSpan()) * 11);
 export const batteryPx = createMemo<i32>(() => idiv(battery() * 16, 100));
 /** Progress bar width in px for a 288 px track. */
 export const progressPx = createMemo<i32>(() => (durationMs() > 0 ? idiv(elapsedMs() * 288, durationMs()) : 0));

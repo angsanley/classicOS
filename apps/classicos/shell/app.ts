@@ -4,7 +4,7 @@
 
 import { createSignal } from "solid-js";
 import { createMemo } from "@pocketjs/framework/solid/reactive";
-import { after, idiv, imod, len, type Color, type i32 } from "@pocketjs/framework/solid/std";
+import { after, cancel, idiv, imod, len, type Color, type i32 } from "@pocketjs/framework/solid/std";
 import { playback } from "@pocketjs/framework/rockbox/playback/model";
 import { system } from "@pocketjs/framework/rockbox/system/model";
 
@@ -44,7 +44,6 @@ const MONTHS: string[] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"
 export async function poll(): Promise<void> {
   for (let step: i32 = 0; step < 2147483647; step++) {
     marqueeTick();
-    volumeTick();
     if (volumeSendIn > 0) volumeSendIn -= 1;
     if (volumePending && volumeSendIn === 0) {
       volumePending = false;
@@ -118,8 +117,7 @@ function marqueeTick(): void {
 
 // Wheel = volume on Now Playing: the overlay and the shown value update at
 // once; poll() sends only the latest value, one request at a time (turns in
-// between coalesce), and hides the overlay ~2 s after the last turn.
-const VOLUME_SHOW_TICKS: i32 = 60;
+// between coalesce). hideVolume hides the overlay 2 s after the last turn.
 /** The wheel axis reports millidegrees; one click is 15000
  * (WHEEL_STEP_MILLIDEGREES in pocketjs/hosts/rockbox/src/lib.rs). */
 const WHEEL_STEP: i32 = 15000;
@@ -141,22 +139,20 @@ let volumePending: boolean = false;
  * I2C transfer. The latest value is always sent once the wheel stops. */
 const VOLUME_SEND_TICKS: i32 = 3;
 let volumeSendIn: i32 = 0;
-let volumeHideIn: i32 = 0;
 
 export function wheel(delta: i32): void {
   if (!hasTrack()) return;
   const next = dbSegment(volume()) + idiv(delta, WHEEL_STEP);
   setVolume(segmentDb(next < 0 ? 0 : next > SEGMENTS ? SEGMENTS : next));
   volumePending = true;
-  volumeHideIn = VOLUME_SHOW_TICKS;
   setVolumeShown(true);
+  cancel(hideVolume);
+  hideVolume();
 }
 
-function volumeTick(): void {
-  if (volumeHideIn > 0) {
-    volumeHideIn -= 1;
-    if (volumeHideIn === 0) setVolumeShown(false);
-  }
+async function hideVolume(): Promise<void> {
+  await after(2000);
+  setVolumeShown(false);
 }
 
 function pad2(n: i32): string {

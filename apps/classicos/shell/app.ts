@@ -57,7 +57,7 @@ export async function poll(): Promise<void> {
     marqueeTick();
     if (marqueeMeasured !== marqueeText()) {
       marqueeMeasured = marqueeText();
-      const m = await system.measure(marqueeMeasured, marqueeSlot());
+      const m = await system.measure(marqueeMeasured, MARQUEE_SLOT);
       if (m.kind === "ok" && marqueeMeasured === marqueeText()) setMarqueeWidth(m.width);
     }
     if (volumeSendIn > 0) volumeSendIn -= 1;
@@ -111,6 +111,7 @@ export async function poll(): Promise<void> {
         setArtTop(p.art !== "" ? p.artTop : "#5b6270");
         setArtBottom(p.art !== "" ? p.artBottom : "#16181c");
       }
+      leaveStoppedNowPlaying();
       const s = await system.snapshot();
       if (s.kind === "ok") {
         setHour(s.hour);
@@ -132,8 +133,6 @@ export async function poll(): Promise<void> {
 
 /** Title column width beside the art, px */
 export const TITLE_BOX: i32 = 146;
-/** Subtitle width in Home's Now Playing row, px */
-export const LINE_BOX: i32 = 220;
 
 // iOS-style marquee for the one text on screen that may overflow (see
 // marqueeText): the view renders it twice, MARQUEE_GAP apart; scrolling by one
@@ -213,8 +212,6 @@ function pad2(n: i32): string {
 
 export const time = createMemo<string>(() => `${hour()}:${pad2(minute())}`);
 export const date = createMemo<string>(() => `${WEEKDAYS[imod(weekday(), 7)]} ${day()} ${MONTHS[imod(month() - 1, 12)]}`);
-/** Home's Now Playing subtitle */
-export const nowPlayingLine = createMemo<string>(() => (status() === "stopped" ? "" : artist() !== "" ? `${title()} · ${artist()}` : title()));
 export const hasTrack = createMemo<boolean>(() => status() !== "stopped");
 export const paused = createMemo<boolean>(() => status() === "paused");
 
@@ -251,18 +248,19 @@ export const batteryPx = createMemo<i32>(() => idiv(battery() * 16, 100));
 export const progressPx = createMemo<i32>(() => (durationMs() > 0 ? idiv(elapsedMs() * 288, durationMs()) : 0));
 
 // Screens and navigation. One screen is mounted at a time (the root's
-// Switch unmounts the rest). Select opens, Menu goes back: Music -> Home ->
-// Now Playing. Back targets are fixed until the library browser needs a stack.
+// Switch unmounts the rest). The root is Now Playing while music plays and
+// the app drawer otherwise; Menu goes back one level. Back targets are fixed
+// until the library browser needs a stack.
 
-/** "now", "home", "music", "settings", "brightness", "backlight" or "about" */
-export const [screen, setScreen] = createSignal<string>("now");
+/** "now", "drawer", "music", "settings", "brightness", "backlight" or "about" */
+export const [screen, setScreen] = createSignal<string>("drawer");
 
-/** Home rows: Now Playing, Music, Settings */
-const HOME_ITEMS: i32 = 3;
-/** Music rows: Playlists, Artists, Albums, Songs, Shuffle */
-const MUSIC_ITEMS: i32 = 5;
-/** Selections are kept across visits so a list reopens where it was. */
-export const [homeIndex, setHomeIndex] = createSignal<i32>(0);
+/** Drawer apps, row-major in its 2x4 grid: Music, Settings */
+const DRAWER_ITEMS: i32 = 2;
+/** Music rows: Playlists, Artists, Albums, Songs */
+const MUSIC_ITEMS: i32 = 4;
+/** Selections are kept across visits so a screen reopens where it was. */
+export const [drawerIndex, setDrawerIndex] = createSignal<i32>(0);
 export const [musicIndex, setMusicIndex] = createSignal<i32>(0);
 /** Music list scroll in px; moves only to keep the selection in view */
 export const [musicScroll, setMusicScroll] = createSignal<i32>(0);
@@ -271,7 +269,7 @@ const ROW_PITCH: i32 = 48;
 const ROW_HEIGHT: i32 = 44;
 const LIST_VIEW: i32 = 206;
 
-/** Lists go back to Now Playing after this long untouched, if something plays. */
+/** Screens go back to Now Playing after this long untouched, if something plays. */
 const IDLE_RETURN_MS: i32 = 30000;
 
 async function idleReturn(): Promise<void> {
@@ -307,19 +305,23 @@ function scrollTo(index: i32, scroll: i32): i32 {
   return scroll;
 }
 
-export function openHome(): void {
-  go("home");
+/** Menu on Now Playing */
+export function openDrawer(): void {
+  go("drawer");
 }
 
-export function homeWheel(delta: i32): void {
-  setHomeIndex(step(homeIndex(), delta, HOME_ITEMS));
-  go("home");
+export function drawerWheel(delta: i32): void {
+  setDrawerIndex(step(drawerIndex(), delta, DRAWER_ITEMS));
+  go("drawer");
 }
 
-export function homeSelect(): void {
-  if (homeIndex() === 0) go("now");
-  else if (homeIndex() === 1) open("music");
-  else open("settings");
+export function drawerSelect(): void {
+  open(drawerIndex() === 0 ? "music" : "settings");
+}
+
+/** Leaves Now Playing for the drawer once the queue ends. Called per poll. */
+function leaveStoppedNowPlaying(): void {
+  if (screen() === "now" && !hasTrack()) go("drawer");
 }
 
 export function musicWheel(delta: i32): void {
@@ -328,10 +330,13 @@ export function musicWheel(delta: i32): void {
   go("music");
 }
 
-/** Menu: Settings' pages go back to Settings, the apps to Home. */
+/** Menu: Settings' pages go back to Settings, the apps to the drawer, and
+ * the drawer to Now Playing while something plays. */
 export function back(): void {
   const s = screen();
-  go(s === "brightness" || s === "backlight" || s === "about" ? "settings" : "home");
+  if (s === "brightness" || s === "backlight" || s === "about") go("settings");
+  else if (s !== "drawer") go("drawer");
+  else if (hasTrack()) go("now");
 }
 
 export function musicSelect(): void {
@@ -339,12 +344,11 @@ export function musicSelect(): void {
   go("music");
 }
 
-/** The text the marquee drives: Now Playing's title, or Home's Now
- * Playing subtitle while that row is selected. Font slots follow fontSlotFor
- * (framework/compiler/tailwind.ts): 11 = text-xl bold, 0 = text-xs. */
-export const marqueeText = createMemo<string>(() => (screen() === "home" ? (homeIndex() === 0 ? nowPlayingLine() : "") : title()));
-const marqueeSlot = createMemo<i32>(() => (screen() === "home" ? 0 : 11));
-export const marqueeFits = createMemo<boolean>(() => marqueeWidth() <= (screen() === "home" ? LINE_BOX : TITLE_BOX));
+/** The text the marquee drives: Now Playing's title, measured in font slot
+ * 11 (text-xl bold; fontSlotFor in framework/compiler/tailwind.ts). */
+export const marqueeText = createMemo<string>(() => (screen() === "now" ? title() : ""));
+const MARQUEE_SLOT: i32 = 11;
+export const marqueeFits = createMemo<boolean>(() => marqueeWidth() <= TITLE_BOX);
 
 // Settings: Brightness (a level screen), Backlight (a picker), Clicker (a
 // switch), About.

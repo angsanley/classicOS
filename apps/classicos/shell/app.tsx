@@ -4,8 +4,8 @@
 //
 // Now Playing: status bar, rounded cover with a shadow, title / artist /
 // album beside it, a full-width scrubber with times and the quality badge
-// below. No on-screen transport: Play/Prev/Next are hardware keys. Nothing
-// playing: big clock.
+// below. No on-screen transport: Play/Prev/Next are hardware keys. Shown
+// only while a track is loaded; the drawer is the root otherwise.
 
 import { Match, Show, Switch } from "solid-js";
 import { ActionHandler, AxisHandler, Image, Text, View } from "@pocketjs/framework/solid/components";
@@ -15,11 +15,11 @@ import {
   available, back, backlightIndex, backlightLabel, backlightOption, backlightSelect, backlightWheel,
   batteryText, brightnessPx, clicker, brightnessWheel, capacity, settingsIndex, settingsSelect, settingsWheel, version,
   album, art, artBottom, artTop, artist, badge, batteryPx, date, elapsed, hasTrack,
-  homeIndex, homeSelect, homeWheel, musicIndex, musicScroll, musicSelect, musicWheel, nowPlayingLine, openHome, poll, progressPx,
+  drawerIndex, drawerSelect, drawerWheel, musicIndex, musicScroll, musicSelect, musicWheel, openDrawer, poll, progressPx,
   remaining, screen, status, time, title, marqueeFits, marqueeOffset,
   volumeLevel, volumeLitPx, volumeShown, wheel,
 } from "./app";
-import Home from "./Home.tsx";
+import Drawer from "./Drawer.tsx";
 import Music from "./Music.tsx";
 import About from "./About.tsx";
 import Backlight from "./Backlight.tsx";
@@ -31,13 +31,11 @@ export default function Shell() {
   onMount(poll);
   return (
     <Switch>
-      <Match when={screen() === "home"}>
-        <Home
-          selected={homeIndex()}
-          nowPlaying={nowPlayingLine()} hasArt={art() !== ""}
-          lineFits={marqueeFits()} lineOffset={marqueeOffset()}
+      <Match when={screen() === "drawer"}>
+        <Drawer
+          selected={drawerIndex()}
           status={status()} time={time()} batteryPx={batteryPx()}
-          onWheel={(delta) => homeWheel(delta)} onSelect={() => homeSelect()}
+          onWheel={(delta) => drawerWheel(delta)} onSelect={() => drawerSelect()} onBack={() => back()}
         />
       </Match>
       <Match when={screen() === "music"}>
@@ -81,11 +79,11 @@ export default function Shell() {
           style={{ gradFrom: artTop(), gradTo: artBottom() }}
         >
           <AxisHandler axis="primary" onDelta={(delta) => wheel(delta)} />
-          <ActionHandler button={BTN.CROSS} latched onPress={() => openHome()} />
+          <ActionHandler button={BTN.CROSS} latched onPress={() => openDrawer()} />
           {/* Dims the art-derived gradient so white text stays readable. */}
           <View class="absolute inset-0 bg-[#00000040]" />
 
-          <StatusBar title={hasTrack() ? "Now Playing" : ""} dark={false} status={status()} time={time()} clock={hasTrack()} batteryPx={batteryPx()} />
+          <StatusBar title="Now Playing" dark={false} status={status()} time={time()} clock batteryPx={batteryPx()} />
 
           <Show when={hasTrack()}>
             {/* Radius matches the 14 px corners baked into the art (ART_RADIUS). */}
@@ -138,12 +136,6 @@ export default function Shell() {
             </Show>
           </Show>
 
-          <Show when={!hasTrack()}>
-            <View class="absolute inset-0 flex-col items-center justify-center">
-              <Text class="text-sm text-[#d8dbe0] font-bold">{date()}</Text>
-              <Text class="text-5xl text-white font-bold">{time()}</Text>
-            </View>
-          </Show>
           <Show when={volumeShown()}>
             {/* Volume HUD (macOS style): an indicator, not a slider; the wheel
                 drives it. Floats over the content; kept to a few nodes and opaque

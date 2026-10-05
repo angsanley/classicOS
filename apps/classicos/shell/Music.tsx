@@ -1,5 +1,5 @@
 // Music: the library menu. The wheel moves the selection and the list scrolls
-// to keep it in view; Select opens, Menu goes back to Home.
+// to keep it in view; Select opens, Menu goes back to the drawer.
 
 import { ActionHandler, AxisHandler, Image, View } from "@pocketjs/framework/solid/components";
 import { BTN } from "@pocketjs/framework/input";
@@ -36,9 +36,6 @@ export default function Music(props: {
           </MenuRow>
           <MenuRow selected={props.selected} index={3} label="Songs" subtitle="" subtitleFits subtitleOffset={0} value="">
             <Image src="icons/menu_songs.svg" class="w-[24] h-[24]" />
-          </MenuRow>
-          <MenuRow selected={props.selected} index={4} label="Shuffle" subtitle="" subtitleFits subtitleOffset={0} value="">
-            <Image src="icons/menu_shuffle.svg" class="w-[24] h-[24]" />
           </MenuRow>
         </View>
       </View>

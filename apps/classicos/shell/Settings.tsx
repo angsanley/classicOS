@@ -1,5 +1,5 @@
 // Settings: Brightness, Backlight, Clicker and About. Select opens a row or
-// flips Clicker; Menu goes back to Home.
+// flips Clicker; Menu goes back to the drawer.
 
 import { ActionHandler, AxisHandler, Image, View } from "@pocketjs/framework/solid/components";
 import { BTN } from "@pocketjs/framework/input";

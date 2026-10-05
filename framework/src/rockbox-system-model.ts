@@ -21,6 +21,17 @@ const MODULE = "@pocketjs/framework/rockbox/system/model";
 const call = (name: string): PromiseLike<SystemResult> =>
   ({ kind: "service", service: MODULE, call: name, args: [] }) as unknown as PromiseLike<SystemResult>;
 
+export type MeasureResult =
+  | { kind: "ok"; width: i32 }
+  | { kind: "unavailable" } | { kind: "busy" } | { kind: "malformed" };
+
+/** Width in px of `text` in a baked font slot (fontSlotFor in
+ * framework/compiler/tailwind.ts: 0-6 regular 12-36 px, 7-13 bold). */
+function measure(text: string, slot: i32): PromiseLike<MeasureResult> {
+  return { kind: "service", service: MODULE, call: "measure", args: [text, slot] } as unknown as PromiseLike<MeasureResult>;
+}
+
 export const system = {
   snapshot: () => call("snapshot"),
+  measure,
 };

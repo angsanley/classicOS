@@ -111,8 +111,6 @@ struct Art {
     name: String,
     /// Average colours of the art's top and bottom halves, "#rrggbb"
     colors: (String, String),
-    /// (art node, texture) last bound, so binding only happens on change
-    bound: (i32, i32),
     /// Node id from the last tree search, revalidated by name each frame
     art_node: NodeId,
 }
@@ -123,7 +121,6 @@ static mut ART: Art = Art {
     serial: 0,
     name: String::new(),
     colors: (String::new(), String::new()),
-    bound: (0, -1),
     art_node: NodeId::NONE,
 };
 
@@ -149,7 +146,8 @@ fn named(ui: &Ui, cache: &mut NodeId, name: &str) -> Option<NodeId> {
     (*cache != NodeId::NONE).then_some(*cache)
 }
 
-/// Binds the art texture to the AlbumArt node whenever either changes.
+/// Binds the art texture to the AlbumArt node every frame: set_image is a
+/// field write, and a remounted screen can reuse the node id.
 pub fn bind_art(ui: &mut Ui) {
     // SAFETY: the UI thread is the only user of ART.
     let art = unsafe { &mut *core::ptr::addr_of_mut!(ART) };
@@ -159,13 +157,9 @@ pub fn bind_art(ui: &mut Ui) {
     let image = named(ui, &mut art.art_node, ART_NODE)
         .and_then(|view| ui.core().node_children(view.0).first().map(|&child| NodeId(child)));
     let Some(node) = image else {
-        art.bound = (0, -1);
         return;
     };
-    if art.bound != (node.0, art.texture) {
-        ui.set_image(node, art.texture);
-        art.bound = (node.0, art.texture);
-    }
+    ui.set_image(node, art.texture);
 }
 
 /// Uploads the current track's art when it changes and returns a name that
@@ -311,6 +305,13 @@ pub fn serve(ui: &mut Ui) {
                 _ => object(vec![("kind", string("malformed"))]),
             },
             (SYSTEM, "snapshot") => system(),
+            (SYSTEM, "measure") => match (r.args.first(), r.args.get(1)) {
+                (Some(Value::String(text)), Some(Value::I32(slot))) => object(vec![
+                    ("kind", string("ok")),
+                    ("width", Value::I32(ui.core().measure_text(text, *slot as u8) as i32)),
+                ]),
+                _ => object(vec![("kind", string("malformed"))]),
+            },
             _ => object(vec![("kind", string("malformed"))]),
         };
         ui.queue_model_delivery(Delivery { request: r.request, result: Completion::Value(value) });

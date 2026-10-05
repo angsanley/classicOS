@@ -10,6 +10,8 @@ export type SystemResult =
       charging: boolean;
       /** On external power, charging or full */
       plugged: boolean;
+      /** Hold switch on */
+      hold: boolean;
       /** Local time from the RTC. weekday: 0 = Sunday, month: 1-12 */
       hour: i32;
       minute: i32;

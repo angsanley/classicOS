@@ -29,6 +29,11 @@ export const [weekday, setWeekday] = createSignal<i32>(0);
 export const [day, setDay] = createSignal<i32>(1);
 export const [month, setMonth] = createSignal<i32>(1);
 export const [battery, setBattery] = createSignal<i32>(100);
+/** Volume in dB and the codec's range, from the host */
+export const [volume, setVolume] = createSignal<i32>(-25);
+export const [volumeMin, setVolumeMin] = createSignal<i32>(-89);
+export const [volumeMax, setVolumeMax] = createSignal<i32>(6);
+export const [volumeShown, setVolumeShown] = createSignal<boolean>(false);
 
 const WEEKDAYS: string[] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS: string[] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -39,6 +44,12 @@ const MONTHS: string[] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"
 export async function poll(): Promise<void> {
   for (let step: i32 = 0; step < 2147483647; step++) {
     marqueeTick();
+    volumeTick();
+    if (volumePending) {
+      volumePending = false;
+      const v = await playback.setVolume(volume());
+      if (v.kind === "ok") setVolume(v.volume);
+    }
     if (imod(step, 8) === 0) {
       const p = await playback.snapshot();
       if (p.kind === "ok") {
@@ -50,6 +61,9 @@ export async function poll(): Promise<void> {
         setCodec(p.codec);
         setFrequency(p.frequency);
         setBitrate(p.bitrate);
+        setVolumeMin(p.volumeMin);
+        setVolumeMax(p.volumeMax);
+        if (!volumePending) setVolume(p.volume);
         setElapsedMs(p.elapsedMs);
         setDurationMs(p.durationMs);
         setArt(p.art);
@@ -99,6 +113,32 @@ function marqueeTick(): void {
   }
 }
 
+// Wheel = volume on Now Playing: the overlay and the shown value update at
+// once; poll() sends the latest value to the host on its next tick and hides
+// the overlay ~2 s after the last turn.
+const VOLUME_SHOW_TICKS: i32 = 60;
+/** The wheel axis reports millidegrees; one click is 15000
+ * (WHEEL_STEP_MILLIDEGREES in pocketjs/hosts/rockbox/src/lib.rs). 1 click = 1 dB. */
+const WHEEL_STEP: i32 = 15000;
+let volumePending: boolean = false;
+let volumeHideIn: i32 = 0;
+
+export function wheel(delta: i32): void {
+  if (!hasTrack()) return;
+  const next = volume() + idiv(delta, WHEEL_STEP);
+  setVolume(next < volumeMin() ? volumeMin() : next > volumeMax() ? volumeMax() : next);
+  volumePending = true;
+  volumeHideIn = VOLUME_SHOW_TICKS;
+  setVolumeShown(true);
+}
+
+function volumeTick(): void {
+  if (volumeHideIn > 0) {
+    volumeHideIn -= 1;
+    if (volumeHideIn === 0) setVolumeShown(false);
+  }
+}
+
 function pad2(n: i32): string {
   return `${n < 10 ? "0" : ""}${n}`;
 }
@@ -130,6 +170,9 @@ export const badge = createMemo<string>(() => {
   return bitrate() > 0 ? `${codec()} ${bitrate()} kbps` : codec();
 });
 /** Battery fill in px inside the 24 px battery outline (16 px interior). */
+const volumeSpan = createMemo<i32>(() => (volumeMax() > volumeMin() ? volumeMax() - volumeMin() : 1));
+/** Volume bar fill for a 256 px track */
+export const volumePx = createMemo<i32>(() => idiv((volume() - volumeMin()) * 256, volumeSpan()));
 export const batteryPx = createMemo<i32>(() => idiv(battery() * 16, 100));
 /** Progress bar width in px for a 288 px track. */
 export const progressPx = createMemo<i32>(() => (durationMs() > 0 ? idiv(elapsedMs() * 288, durationMs()) : 0));

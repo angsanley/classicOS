@@ -4,11 +4,12 @@
 // Play/Prev/Next are hardware keys. Nothing playing: big clock.
 
 import { Show } from "solid-js";
-import { Image, Text, View } from "@pocketjs/framework/solid/components";
+import { AxisHandler, Image, Text, View } from "@pocketjs/framework/solid/components";
 import { onMount } from "@pocketjs/framework/solid/lifecycle";
 import {
   album, art, artBottom, artTop, artist, badge, batteryPx, date, elapsed, hasTrack,
   paused, poll, progressPx, remaining, time, title, titleFits, titleOffset,
+  volumePx, volumeShown, wheel,
 } from "./app";
 
 export default function NowPlaying() {
@@ -18,6 +19,7 @@ export default function NowPlaying() {
       class="w-full h-full bg-gradient-to-b from-[#5b6270] to-[#16181c] overflow-hidden"
       style={{ gradFrom: artTop(), gradTo: artBottom() }}
     >
+      <AxisHandler axis="primary" onDelta={(delta) => wheel(delta)} />
       {/* Dims the art-derived gradient so white text stays readable. */}
       <View class="absolute inset-0 bg-[#00000040]" />
 
@@ -93,6 +95,15 @@ export default function NowPlaying() {
         <View class="absolute inset-0 flex-col items-center justify-center">
           <Text class="text-sm text-[#d8dbe0] font-bold">{date()}</Text>
           <Text class="text-5xl text-white font-bold">{time()}</Text>
+        </View>
+      </Show>
+      <Show when={volumeShown()}>
+        {/* Volume overlay while the wheel turns (wheel = volume here). */}
+        <View class="absolute inset-0 bg-[#000000b3] flex-col items-center justify-center gap-[16]">
+          <Image src="icons/speaker_3_fill.svg" class="w-[32] h-[32]" />
+          <View class="w-[256] h-[8] rounded-[4px] bg-[#ffffff40]">
+            <View class="h-[8] rounded-[4px] bg-white" style={{ width: volumePx() }} />
+          </View>
         </View>
       </Show>
     </View>

@@ -12,6 +12,7 @@
 #include "powermgmt.h"
 #include "power.h"
 #include "timefuncs.h"
+#include "sound.h"
 #include "buffering.h"
 #include "playback.h"
 #include "services.h"
@@ -35,6 +36,8 @@ struct pocketjs_playback {
     char codec[16]; /* Rockbox format label, e.g. "FLAC", "MP3" */
     int32_t frequency; /* Hz */
     int32_t bitrate; /* kbps */
+    int32_t volume_min; /* dB, the codec's range */
+    int32_t volume_max;
 };
 
 struct pocketjs_system {
@@ -72,6 +75,8 @@ void pocketjs_host_playback(struct pocketjs_playback *out)
 
     memset(out, 0, sizeof(*out));
     out->volume = global_status.volume;
+    out->volume_min = sound_min(SOUND_VOLUME);
+    out->volume_max = sound_max(SOUND_VOLUME);
     out->shuffle = global_settings.playlist_shuffle;
     if (status & AUDIO_STATUS_PLAY)
         out->status = (status & AUDIO_STATUS_PAUSE) ? 2 : 1;
@@ -96,6 +101,15 @@ void pocketjs_host_playback(struct pocketjs_playback *out)
         strlcpy(out->codec, audio_formats[id3->codectype].label, sizeof(out->codec));
     out->frequency = id3->frequency;
     out->bitrate = id3->bitrate;
+}
+
+/* Clamps to the codec's range, applies it and returns the applied volume. */
+int32_t pocketjs_host_set_volume(int32_t db)
+{
+    db = MAX(sound_min(SOUND_VOLUME), MIN(sound_max(SOUND_VOLUME), db));
+    global_status.volume = db;
+    sound_set(SOUND_VOLUME, db);
+    return db;
 }
 
 void pocketjs_host_system(struct pocketjs_system *out)

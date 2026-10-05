@@ -9,10 +9,12 @@ set -e
 B="$1"; V="$2"
 [ -f "$B/rockbox.ipod" ] || { echo "no rockbox.ipod in $B"; exit 1; }
 [ -d "$V/.rockbox" ] || { echo "not a Rockbox iPod: $V"; exit 1; }
-[ -f "$V/.rockbox/rockbox.ipod.orig" ] || cp "$V/.rockbox/rockbox.ipod" "$V/.rockbox/rockbox.ipod.orig"
+# Back up once. Listing the directory avoids opening the backup itself
+# (stat on it has hit flaky sectors on an old HDD).
+ls "$V/.rockbox" | grep -qx rockbox.ipod.orig || cp "$V/.rockbox/rockbox.ipod" "$V/.rockbox/rockbox.ipod.orig"
 cp "$B/rockbox.ipod" "$V/.rockbox/rockbox.ipod"
 # Codecs must match the firmware's codec API version.
-[ -d "$V/.rockbox/codecs.orig" ] || [ ! -d "$V/.rockbox/codecs" ] || cp -R "$V/.rockbox/codecs" "$V/.rockbox/codecs.orig"
+ls "$V/.rockbox" | grep -qx codecs.orig || [ ! -d "$V/.rockbox/codecs" ] || cp -R "$V/.rockbox/codecs" "$V/.rockbox/codecs.orig"
 mkdir -p "$V/.rockbox/codecs"
 cp "$B"/lib/rbcodec/codecs/*.codec "$V/.rockbox/codecs/"
 mkdir -p "$V/.rockbox/classicos"

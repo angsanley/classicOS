@@ -121,15 +121,26 @@ const VOLUME_SHOW_TICKS: i32 = 60;
 /** The wheel axis reports millidegrees; one click is 15000
  * (WHEEL_STEP_MILLIDEGREES in pocketjs/hosts/rockbox/src/lib.rs). */
 const WHEEL_STEP: i32 = 15000;
-/** dB per wheel click (~half the range per full turn) */
-const VOLUME_STEP: i32 = 2;
+/** The HUD's 16 segments map to the useful range: 0 = mute (codec
+ * minimum), 1..16 = -60 dB up to 0 dB. One wheel click = one segment. */
+const SEGMENTS: i32 = 16;
+const USEFUL_MIN_DB: i32 = -60;
+
+function segmentDb(seg: i32): i32 {
+  return seg <= 0 ? volumeMin() : USEFUL_MIN_DB + idiv(seg * (0 - USEFUL_MIN_DB), SEGMENTS);
+}
+function dbSegment(db: i32): i32 {
+  if (db <= volumeMin() || db <= USEFUL_MIN_DB) return 0;
+  const seg = idiv((db - USEFUL_MIN_DB) * SEGMENTS + 30, 0 - USEFUL_MIN_DB);
+  return seg > SEGMENTS ? SEGMENTS : seg;
+}
 let volumePending: boolean = false;
 let volumeHideIn: i32 = 0;
 
 export function wheel(delta: i32): void {
   if (!hasTrack()) return;
-  const next = volume() + idiv(delta, WHEEL_STEP) * VOLUME_STEP;
-  setVolume(next < volumeMin() ? volumeMin() : next > volumeMax() ? volumeMax() : next);
+  const next = dbSegment(volume()) + idiv(delta, WHEEL_STEP);
+  setVolume(segmentDb(next < 0 ? 0 : next > SEGMENTS ? SEGMENTS : next));
   volumePending = true;
   volumeHideIn = VOLUME_SHOW_TICKS;
   setVolumeShown(true);
@@ -173,17 +184,15 @@ export const badge = createMemo<string>(() => {
   return bitrate() > 0 ? `${codec()} ${bitrate()} kbps` : codec();
 });
 /** Battery fill in px inside the 24 px battery outline (16 px interior). */
-const volumeSpan = createMemo<i32>(() => (volumeMax() > volumeMin() ? volumeMax() - volumeMin() : 1));
-/** Speaker glyph: 0 = muted (bottom of range), then 1-3 waves by thirds */
+/** Speaker glyph: 0 = muted, then 1-3 waves by thirds of the segments */
 export const volumeLevel = createMemo<i32>(() => {
-  if (volume() <= volumeMin()) return 0;
-  const third = idiv((volume() - volumeMin()) * 3, volumeSpan());
-  return third >= 2 ? 3 : third + 1;
+  const seg = dbSegment(volume());
+  return seg === 0 ? 0 : seg <= 5 ? 1 : seg <= 10 ? 2 : 3;
 });
 /** Volume HUD: 16 segments, 8 px wide with 3 px gaps (11 px pitch) */
 export const [volumeSegments, setVolumeSegments] = createSignal<i32[]>([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
 /** Width of the lit part of the segment bar, px */
-export const volumeLitPx = createMemo<i32>(() => idiv((volume() - volumeMin()) * 16, volumeSpan()) * 11);
+export const volumeLitPx = createMemo<i32>(() => dbSegment(volume()) * 11);
 export const batteryPx = createMemo<i32>(() => idiv(battery() * 16, 100));
 /** Progress bar width in px for a 288 px track. */
 export const progressPx = createMemo<i32>(() => (durationMs() > 0 ? idiv(elapsedMs() * 288, durationMs()) : 0));

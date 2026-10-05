@@ -8,10 +8,31 @@
 #include "settings.h"
 #include "sound.h"
 #include "usb.h"
+#include "backlight.h"
 #include "settings_classicos.h"
 
 struct user_settings global_settings;
 struct system_status global_status;
+
+/* Display defaults, applied at boot (stock Rockbox does this from its
+ * settings file). Rockbox's default brightness (16/32) is too dim on the 5G,
+ * and an unset LCD sleep timeout means "sleep the next tick after the
+ * backlight goes off". fixed values until a Settings screen. */
+static void display_settings_apply(void)
+{
+#ifdef HAVE_BACKLIGHT_BRIGHTNESS
+    backlight_set_brightness(28);
+#endif
+#ifdef HAVE_BACKLIGHT
+    backlight_set_timeout(30);
+#if CONFIG_CHARGING
+    backlight_set_timeout_plugged(60);
+#endif
+#endif
+#ifdef HAVE_LCD_SLEEP_SETTING
+    lcd_set_sleep_after_backlight_off(10);
+#endif
+}
 
 void classicos_settings_init(void)
 {
@@ -37,6 +58,7 @@ void classicos_settings_init(void)
 #ifdef HAVE_CROSSFADE
     global_settings.crossfade = CROSSFADE_ENABLE_OFF;
 #endif
+    display_settings_apply();
 }
 
 void sound_settings_apply(void)

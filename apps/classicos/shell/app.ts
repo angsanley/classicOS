@@ -118,14 +118,16 @@ function marqueeTick(): void {
 // the overlay ~2 s after the last turn.
 const VOLUME_SHOW_TICKS: i32 = 60;
 /** The wheel axis reports millidegrees; one click is 15000
- * (WHEEL_STEP_MILLIDEGREES in pocketjs/hosts/rockbox/src/lib.rs). 1 click = 1 dB. */
+ * (WHEEL_STEP_MILLIDEGREES in pocketjs/hosts/rockbox/src/lib.rs). */
 const WHEEL_STEP: i32 = 15000;
+/** dB per wheel click (~half the range per full turn) */
+const VOLUME_STEP: i32 = 2;
 let volumePending: boolean = false;
 let volumeHideIn: i32 = 0;
 
 export function wheel(delta: i32): void {
   if (!hasTrack()) return;
-  const next = volume() + idiv(delta, WHEEL_STEP);
+  const next = volume() + idiv(delta, WHEEL_STEP) * VOLUME_STEP;
   setVolume(next < volumeMin() ? volumeMin() : next > volumeMax() ? volumeMax() : next);
   volumePending = true;
   volumeHideIn = VOLUME_SHOW_TICKS;

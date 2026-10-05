@@ -40,7 +40,8 @@ export default function NowPlaying() {
       </View>
 
       <Show when={hasTrack()}>
-        <View class="absolute top-[34] left-[16] w-[128] h-[128] rounded-[12px] bg-[#8a8d93] shadow-lg items-center justify-center">
+        {/* Radius matches the 14 px corners baked into the art (ART_RADIUS). */}
+        <View class="absolute top-[34] left-[16] w-[128] h-[128] rounded-[14px] bg-[#8a8d93] shadow-lg items-center justify-center">
           <Image src="icons/music_note_2.svg" class="w-[40] h-[40]" />
         </View>
         <Show when={art() !== ""}>

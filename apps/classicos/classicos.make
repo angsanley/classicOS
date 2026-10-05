@@ -49,7 +49,10 @@ $(PJS_NODE_LINKS):
 	$(SILENT)mkdir -p $(dir $@) && ln -sfn $(POCKETJS_DIR) $@ && \
 		ln -sfn $(POCKETJS_DIR)/node_modules/solid-js $(PJS_APP_DIR)/node_modules/solid-js
 
-$(PJS_GEN)/include.rs: $(wildcard $(PJS_APP_DIR)/*.ts*) $(PJS_CRATE)/gen.ts | $(PJS_NODE_LINKS)
+# Baked assets (fonts from text, images and SVG icons) come from the app dir too.
+PJS_APP_SRC := $(shell find $(PJS_APP_DIR) -path '*/node_modules' -prune -o -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.svg' -o -name '*.png' \) -print)
+
+$(PJS_GEN)/include.rs: $(PJS_APP_SRC) $(PJS_CRATE)/gen.ts | $(PJS_NODE_LINKS)
 	$(call PRINTS,MICROTS $(PJS_APP_NAME))rm -rf $(PJS_GEN) && cd $(POCKETJS_DIR) && \
 		bun ./hosts/rockbox/gen.ts $(PJS_APP_DIR)/app.tsx $(PJS_GEN) >/dev/null
 	$(SILENT)rm -rf $(PJS_DATA) && mkdir -p $(PJS_DATA) && \

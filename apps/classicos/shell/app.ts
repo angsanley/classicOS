@@ -93,7 +93,7 @@ export async function poll(): Promise<void> {
 
 /** Title column width beside the art, px */
 export const TITLE_BOX: i32 = 146;
-/** Subtitle width in the menu's Now Playing row, px */
+/** Subtitle width in Home's Now Playing row, px */
 export const LINE_BOX: i32 = 220;
 
 // iOS-style marquee for the one text on screen that may overflow (see
@@ -174,7 +174,7 @@ function pad2(n: i32): string {
 
 export const time = createMemo<string>(() => `${hour()}:${pad2(minute())}`);
 export const date = createMemo<string>(() => `${WEEKDAYS[imod(weekday(), 7)]} ${day()} ${MONTHS[imod(month() - 1, 12)]}`);
-/** The menu's Now Playing subtitle */
+/** Home's Now Playing subtitle */
 export const nowPlayingLine = createMemo<string>(() => (status() === "stopped" ? "" : artist() !== "" ? `${title()} · ${artist()}` : title()));
 export const hasTrack = createMemo<boolean>(() => status() !== "stopped");
 export const paused = createMemo<boolean>(() => status() === "paused");
@@ -212,24 +212,27 @@ export const batteryPx = createMemo<i32>(() => idiv(battery() * 16, 100));
 export const progressPx = createMemo<i32>(() => (durationMs() > 0 ? idiv(elapsedMs() * 288, durationMs()) : 0));
 
 // Screens and navigation. One screen is mounted at a time (the root's
-// Switch unmounts the rest). Select opens, Menu goes back; the back target is
-// fixed per screen until the library browser needs a stack.
+// Switch unmounts the rest). Select opens, Menu goes back: Music -> Home ->
+// Now Playing. Back targets are fixed until the library browser needs a stack.
 
+/** "now", "home" or "music" */
 export const [screen, setScreen] = createSignal<string>("now");
 
-/** Music menu rows, top to bottom: Now Playing, Playlists, Artists, Albums,
- * Songs, Shuffle, Settings */
-export const MENU_ITEMS: i32 = 7;
-/** Kept across visits so the menu reopens on the last row */
-export const [menuIndex, setMenuIndex] = createSignal<i32>(0);
-/** Menu scroll in px; moves only to keep the selected row in view */
-export const [menuScroll, setMenuScroll] = createSignal<i32>(0);
+/** Home rows: Now Playing, Music, Settings */
+const HOME_ITEMS: i32 = 3;
+/** Music rows: Playlists, Artists, Albums, Songs, Shuffle */
+const MUSIC_ITEMS: i32 = 5;
+/** Selections are kept across visits so a list reopens where it was. */
+export const [homeIndex, setHomeIndex] = createSignal<i32>(0);
+export const [musicIndex, setMusicIndex] = createSignal<i32>(0);
+/** Music list scroll in px; moves only to keep the selection in view */
+export const [musicScroll, setMusicScroll] = createSignal<i32>(0);
 /** Row height + gap, and the list's visible height below the status bar */
-const MENU_PITCH: i32 = 48;
-const MENU_ROW: i32 = 44;
-const MENU_VIEW: i32 = 206;
+const ROW_PITCH: i32 = 48;
+const ROW_HEIGHT: i32 = 44;
+const LIST_VIEW: i32 = 206;
 
-/** The menu goes back to Now Playing after this long untouched, if something plays. */
+/** Lists go back to Now Playing after this long untouched, if something plays. */
 const IDLE_RETURN_MS: i32 = 30000;
 
 async function idleReturn(): Promise<void> {
@@ -237,38 +240,55 @@ async function idleReturn(): Promise<void> {
   if (hasTrack()) setScreen("now");
 }
 
-function touched(): void {
+function go(to: string): void {
+  setScreen(to);
   cancel(idleReturn);
-  idleReturn();
+  if (to !== "now") idleReturn();
 }
 
-export function openMenu(): void {
-  setScreen("music");
-  touched();
+function step(index: i32, delta: i32, count: i32): i32 {
+  const next = index + idiv(delta, WHEEL_STEP);
+  return next < 0 ? 0 : next >= count ? count - 1 : next;
 }
 
-export function menuWheel(delta: i32): void {
-  const next = menuIndex() + idiv(delta, WHEEL_STEP);
-  const index = next < 0 ? 0 : next >= MENU_ITEMS ? MENU_ITEMS - 1 : next;
-  setMenuIndex(index);
-  const top = index * MENU_PITCH;
-  if (top < menuScroll()) setMenuScroll(top);
-  else if (top + MENU_ROW > menuScroll() + MENU_VIEW) setMenuScroll(top + MENU_ROW - MENU_VIEW);
-  touched();
+/** Scroll that keeps row `index` in view, moving as little as possible */
+function scrollTo(index: i32, scroll: i32): i32 {
+  const top = index * ROW_PITCH;
+  if (top < scroll) return top;
+  if (top + ROW_HEIGHT > scroll + LIST_VIEW) return top + ROW_HEIGHT - LIST_VIEW;
+  return scroll;
 }
 
-export function menuSelect(): void {
-  touched();
-  // only Now Playing is built; the library rows come next
-  if (menuIndex() === 0) {
-    cancel(idleReturn);
-    setScreen("now");
-  }
+export function openHome(): void {
+  go("home");
 }
 
-/** The text the marquee drives: Now Playing's title, or the menu's Now
+export function homeWheel(delta: i32): void {
+  setHomeIndex(step(homeIndex(), delta, HOME_ITEMS));
+  go("home");
+}
+
+export function homeSelect(): void {
+  // Settings is not built yet
+  if (homeIndex() === 0) go("now");
+  else if (homeIndex() === 1) go("music");
+  else go("home");
+}
+
+export function musicWheel(delta: i32): void {
+  setMusicIndex(step(musicIndex(), delta, MUSIC_ITEMS));
+  setMusicScroll(scrollTo(musicIndex(), musicScroll()));
+  go("music");
+}
+
+export function musicSelect(): void {
+  // the library rows need a library source (tagcache) first
+  go("music");
+}
+
+/** The text the marquee drives: Now Playing's title, or Home's Now
  * Playing subtitle while that row is selected. Font slots follow fontSlotFor
  * (framework/compiler/tailwind.ts): 11 = text-xl bold, 0 = text-xs. */
-export const marqueeText = createMemo<string>(() => (screen() === "music" ? (menuIndex() === 0 ? nowPlayingLine() : "") : title()));
-const marqueeSlot = createMemo<i32>(() => (screen() === "music" ? 0 : 11));
-export const marqueeFits = createMemo<boolean>(() => marqueeWidth() <= (screen() === "music" ? LINE_BOX : TITLE_BOX));
+export const marqueeText = createMemo<string>(() => (screen() === "home" ? (homeIndex() === 0 ? nowPlayingLine() : "") : title()));
+const marqueeSlot = createMemo<i32>(() => (screen() === "home" ? 0 : 11));
+export const marqueeFits = createMemo<boolean>(() => marqueeWidth() <= (screen() === "home" ? LINE_BOX : TITLE_BOX));

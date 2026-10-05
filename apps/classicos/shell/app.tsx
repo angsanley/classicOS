@@ -13,10 +13,11 @@ import { BTN } from "@pocketjs/framework/input";
 import { onMount } from "@pocketjs/framework/solid/lifecycle";
 import {
   album, art, artBottom, artTop, artist, badge, batteryPx, date, elapsed, hasTrack,
-  menuIndex, menuScroll, menuSelect, menuWheel, nowPlayingLine, openMenu, poll, progressPx,
+  homeIndex, homeSelect, homeWheel, musicIndex, musicScroll, musicSelect, musicWheel, nowPlayingLine, openHome, poll, progressPx,
   remaining, screen, status, time, title, marqueeFits, marqueeOffset,
   volumeLevel, volumeLitPx, volumeShown, wheel,
 } from "./app";
+import Home from "./Home.tsx";
 import Music from "./Music.tsx";
 import StatusBar from "./StatusBar.tsx";
 
@@ -24,13 +25,20 @@ export default function Shell() {
   onMount(poll);
   return (
     <Switch>
-      <Match when={screen() === "music"}>
-        <Music
-          selected={menuIndex()} scroll={menuScroll()}
+      <Match when={screen() === "home"}>
+        <Home
+          selected={homeIndex()}
           nowPlaying={nowPlayingLine()} hasArt={art() !== ""}
           lineFits={marqueeFits()} lineOffset={marqueeOffset()}
           status={status()} time={time()} batteryPx={batteryPx()}
-          onWheel={(delta) => menuWheel(delta)} onSelect={() => menuSelect()}
+          onWheel={(delta) => homeWheel(delta)} onSelect={() => homeSelect()}
+        />
+      </Match>
+      <Match when={screen() === "music"}>
+        <Music
+          selected={musicIndex()} scroll={musicScroll()}
+          status={status()} time={time()} batteryPx={batteryPx()}
+          onWheel={(delta) => musicWheel(delta)} onSelect={() => musicSelect()} onBack={() => openHome()}
         />
       </Match>
       <Match when={screen() === "now"}>
@@ -39,7 +47,7 @@ export default function Shell() {
           style={{ gradFrom: artTop(), gradTo: artBottom() }}
         >
           <AxisHandler axis="primary" onDelta={(delta) => wheel(delta)} />
-          <ActionHandler button={BTN.CROSS} onPress={() => openMenu()} />
+          <ActionHandler button={BTN.CROSS} onPress={() => openHome()} />
           {/* Dims the art-derived gradient so white text stays readable. */}
           <View class="absolute inset-0 bg-[#00000040]" />
 

@@ -91,27 +91,31 @@ export const TITLE_BOX: i32 = 146;
 
 // iOS-style marquee for titles wider than TITLE_BOX: the view renders the
 // title twice, MARQUEE_GAP apart; scrolling by one title + gap lands on the
-// second copy, so the loop restarts invisibly. Rests at the start, moves
-// ~30 px/s. Advanced once per 33 ms tick by poll().
+// second copy, so the loop restarts invisibly. Rests 2 s at the start, then
+// moves 1 px per poll() step.
 export const MARQUEE_GAP: i32 = 40;
-const REST_TICKS: i32 = 60;
 let marqueeTitle: string = "";
-let marqueeRest: i32 = REST_TICKS;
+let marqueeResting: boolean = true;
+
+async function restMarquee(): Promise<void> {
+  marqueeResting = true;
+  await after(2000);
+  marqueeResting = false;
+}
 
 function marqueeTick(): void {
   if (title() !== marqueeTitle) {
     marqueeTitle = title();
-    marqueeRest = REST_TICKS;
     setTitleOffset(0);
-  } else if (titleFits()) {
+    cancel(restMarquee);
+    restMarquee();
+  } else if (titleFits() || marqueeResting) {
     return;
-  } else if (marqueeRest > 0) {
-    marqueeRest -= 1;
   } else if (titleOffset() < titleWidth() + MARQUEE_GAP) {
     setTitleOffset(titleOffset() + 1);
   } else {
-    marqueeRest = REST_TICKS;
     setTitleOffset(0);
+    restMarquee();
   }
 }
 

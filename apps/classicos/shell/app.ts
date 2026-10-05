@@ -174,6 +174,12 @@ export const badge = createMemo<string>(() => {
 });
 /** Battery fill in px inside the 24 px battery outline (16 px interior). */
 const volumeSpan = createMemo<i32>(() => (volumeMax() > volumeMin() ? volumeMax() - volumeMin() : 1));
+/** Speaker glyph: 0 = muted (bottom of range), then 1-3 waves by thirds */
+export const volumeLevel = createMemo<i32>(() => {
+  if (volume() <= volumeMin()) return 0;
+  const third = idiv((volume() - volumeMin()) * 3, volumeSpan());
+  return third >= 2 ? 3 : third + 1;
+});
 /** Volume bar fill for a 256 px track */
 export const volumePx = createMemo<i32>(() => idiv((volume() - volumeMin()) * 256, volumeSpan()));
 export const batteryPx = createMemo<i32>(() => idiv(battery() * 16, 100));

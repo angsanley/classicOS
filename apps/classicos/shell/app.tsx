@@ -9,7 +9,7 @@ import { onMount } from "@pocketjs/framework/solid/lifecycle";
 import {
   album, art, artBottom, artTop, artist, badge, batteryPx, date, elapsed, hasTrack,
   paused, poll, progressPx, remaining, time, title, titleFits, titleOffset,
-  volumePx, volumeShown, wheel,
+  volumeLevel, volumePx, volumeShown, wheel,
 } from "./app";
 
 export default function NowPlaying() {
@@ -24,7 +24,13 @@ export default function NowPlaying() {
       <View class="absolute inset-0 bg-[#00000040]" />
 
       <View class="absolute top-0 left-0 right-0 h-[26] flex-row items-center justify-between px-[14]">
-        <Text class="text-sm text-white font-bold">{date()}</Text>
+        {/* Left slot is always the screen's title; the date belongs to the idle clock. */}
+        <Show when={hasTrack()}>
+          <Text class="text-sm text-white font-bold">Now Playing</Text>
+        </Show>
+        <Show when={!hasTrack()}>
+          <View />
+        </Show>
         <View class="flex-row items-center gap-[5]">
           <Show when={hasTrack() && !paused()}>
             <Image src="icons/play_fill.svg" class="w-[12] h-[12]" />
@@ -72,7 +78,7 @@ export default function NowPlaying() {
             <Text class="text-sm text-[#ffffffbf]">{artist()}</Text>
           </View>
           <View class="w-[146] h-[18] overflow-hidden">
-            <Text class="text-sm text-[#ffffff73]">{album()}</Text>
+            <Text class="text-sm text-[#ffffff99]">{album()}</Text>
           </View>
         </View>
 
@@ -83,8 +89,8 @@ export default function NowPlaying() {
           </View>
         </Show>
         <View class="absolute top-[192] left-[16] right-[16] flex-row justify-between">
-          <Text class="text-xs text-[#ffffff8c]">{elapsed()}</Text>
-          <Text class="text-xs text-[#ffffff8c]">{remaining()}</Text>
+          <Text class="text-xs text-[#ffffffa6]">{elapsed()}</Text>
+          <Text class="text-xs text-[#ffffffa6]">{remaining()}</Text>
         </View>
         <View class="absolute top-[212] left-[16] w-[288] h-[4] rounded-[2px] bg-[#ffffff40]">
           <View class="h-[4] rounded-[2px] bg-[#ffffffd9]" style={{ width: progressPx() }} />
@@ -100,7 +106,10 @@ export default function NowPlaying() {
       <Show when={volumeShown()}>
         {/* Volume overlay while the wheel turns (wheel = volume here). */}
         <View class="absolute inset-0 bg-[#000000d4] flex-col items-center justify-center gap-[16]">
-          <Image src="icons/speaker_3_fill.svg" class="w-[32] h-[32]" />
+          <Show when={volumeLevel() === 0}><Image src="icons/speaker_slash_fill.svg" class="w-[32] h-[32]" /></Show>
+          <Show when={volumeLevel() === 1}><Image src="icons/speaker_1_fill.svg" class="w-[32] h-[32]" /></Show>
+          <Show when={volumeLevel() === 2}><Image src="icons/speaker_2_fill.svg" class="w-[32] h-[32]" /></Show>
+          <Show when={volumeLevel() === 3}><Image src="icons/speaker_3_fill.svg" class="w-[32] h-[32]" /></Show>
           <View class="w-[256] h-[8] rounded-[4px] bg-[#ffffff40]">
             <View class="h-[8] rounded-[4px] bg-white" style={{ width: volumePx() }} />
           </View>

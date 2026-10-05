@@ -99,7 +99,7 @@ export default function NowPlaying() {
       </Show>
       <Show when={volumeShown()}>
         {/* Volume overlay while the wheel turns (wheel = volume here). */}
-        <View class="absolute inset-0 bg-[#000000b3] flex-col items-center justify-center gap-[16]">
+        <View class="absolute inset-0 bg-[#000000d4] flex-col items-center justify-center gap-[16]">
           <Image src="icons/speaker_3_fill.svg" class="w-[32] h-[32]" />
           <View class="w-[256] h-[8] rounded-[4px] bg-[#ffffff40]">
             <View class="h-[8] rounded-[4px] bg-white" style={{ width: volumePx() }} />

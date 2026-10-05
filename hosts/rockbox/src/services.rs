@@ -31,6 +31,8 @@ struct Playback {
     codec: [u8; 16],
     frequency: i32,
     bitrate: i32,
+    volume_min: i32,
+    volume_max: i32,
 }
 
 /// Mirrors `struct pocketjs_system` on the C side.
@@ -48,6 +50,8 @@ struct System {
 extern "C" {
     fn pocketjs_host_playback(out: *mut Playback);
     fn pocketjs_host_system(out: *mut System);
+    /// Applies a volume in dB, clamped to the codec range; returns the result.
+    fn pocketjs_host_set_volume(db: i32) -> i32;
     /// Current track's album art as Rockbox RGB565 (row stride = width).
     /// Returns its buffer handle, or a negative value when there is none.
     fn pocketjs_host_album_art(pixels: *mut *const u16, w: *mut i32, h: *mut i32) -> i32;
@@ -264,6 +268,8 @@ fn playback(ui: &mut Ui) -> Value {
         ("elapsedMs", Value::I32(p.elapsed_ms)),
         ("durationMs", Value::I32(p.duration_ms)),
         ("volume", Value::I32(p.volume)),
+        ("volumeMin", Value::I32(p.volume_min)),
+        ("volumeMax", Value::I32(p.volume_max)),
         ("shuffle", Value::Bool(p.shuffle != 0)),
         ("codec", text(&p.codec)),
         ("frequency", Value::I32(p.frequency)),
@@ -296,6 +302,14 @@ pub fn serve(ui: &mut Ui) {
     for r in requests {
         let value = match (r.service.as_str(), r.call.as_str()) {
             (PLAYBACK, "snapshot") => playback(ui),
+            (PLAYBACK, "setVolume") => match r.args.first() {
+                Some(Value::I32(db)) => {
+                    // SAFETY: plain call into the host.
+                    let applied = unsafe { pocketjs_host_set_volume(*db) };
+                    object(vec![("kind", string("ok")), ("volume", Value::I32(applied))])
+                }
+                _ => object(vec![("kind", string("malformed"))]),
+            },
             (SYSTEM, "snapshot") => system(),
             _ => object(vec![("kind", string("malformed"))]),
         };

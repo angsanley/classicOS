@@ -14,12 +14,45 @@ export type SystemResult =
       weekday: i32;
       day: i32;
       month: i32;
+      /** Backlight level and its range; backlight timeout in s, 0 = always on */
+      brightness: i32;
+      brightnessMin: i32;
+      brightnessMax: i32;
+      backlight: i32;
+      /** Piezo click on wheel steps and presses */
+      clicker: boolean;
     }
   | { kind: "unavailable" } | { kind: "busy" } | { kind: "malformed" };
 
 const MODULE = "@pocketjs/framework/rockbox/system/model";
 const call = (name: string): PromiseLike<SystemResult> =>
   ({ kind: "service", service: MODULE, call: name, args: [] }) as unknown as PromiseLike<SystemResult>;
+
+export type AboutResult =
+  | { kind: "ok"; version: string; diskMb: i32; freeMb: i32 }
+  | { kind: "unavailable" } | { kind: "busy" } | { kind: "malformed" };
+
+/** A setting as applied (clamped) by the host */
+export type SetResult =
+  | { kind: "ok"; value: i32 }
+  | { kind: "unavailable" } | { kind: "busy" } | { kind: "malformed" };
+
+function about(): PromiseLike<AboutResult> {
+  return { kind: "service", service: MODULE, call: "about", args: [] } as unknown as PromiseLike<AboutResult>;
+}
+/** Sets the backlight level; saved when the disk next spins down. */
+function setBrightness(level: i32): PromiseLike<SetResult> {
+  return { kind: "service", service: MODULE, call: "setBrightness", args: [level] } as unknown as PromiseLike<SetResult>;
+}
+/** Sets the backlight timeout in seconds, 0 = always on; saved like brightness. */
+function setBacklight(seconds: i32): PromiseLike<SetResult> {
+  return { kind: "service", service: MODULE, call: "setBacklight", args: [seconds] } as unknown as PromiseLike<SetResult>;
+}
+
+/** Turns the piezo clicker on (1) or off (0); saved like brightness. */
+function setClicker(on: i32): PromiseLike<SetResult> {
+  return { kind: "service", service: MODULE, call: "setClicker", args: [on] } as unknown as PromiseLike<SetResult>;
+}
 
 export type MeasureResult =
   | { kind: "ok"; width: i32 }
@@ -34,4 +67,8 @@ function measure(text: string, slot: i32): PromiseLike<MeasureResult> {
 export const system = {
   snapshot: () => call("snapshot"),
   measure,
+  about,
+  setBrightness,
+  setBacklight,
+  setClicker,
 };

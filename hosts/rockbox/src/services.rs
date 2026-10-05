@@ -45,11 +45,27 @@ struct System {
     weekday: i32,
     day: i32,
     month: i32,
+    brightness: i32,
+    brightness_min: i32,
+    brightness_max: i32,
+    backlight: i32,
+    clicker: i32,
+}
+
+#[repr(C)]
+struct About {
+    version: [u8; 32],
+    disk_mb: i32,
+    free_mb: i32,
 }
 
 extern "C" {
     fn pocketjs_host_playback(out: *mut Playback);
     fn pocketjs_host_system(out: *mut System);
+    fn pocketjs_host_about(out: *mut About);
+    fn pocketjs_host_set_brightness(level: i32) -> i32;
+    fn pocketjs_host_set_backlight(seconds: i32) -> i32;
+    fn pocketjs_host_set_clicker(on: i32) -> i32;
     /// Applies a volume in dB, clamped to the codec range; returns the result.
     fn pocketjs_host_set_volume(db: i32) -> i32;
     /// Current track's album art as Rockbox RGB565 (row stride = width).
@@ -287,7 +303,33 @@ fn system() -> Value {
         ("weekday", Value::I32(s.weekday)),
         ("day", Value::I32(s.day)),
         ("month", Value::I32(s.month)),
+        ("brightness", Value::I32(s.brightness)),
+        ("brightnessMin", Value::I32(s.brightness_min)),
+        ("brightnessMax", Value::I32(s.brightness_max)),
+        ("backlight", Value::I32(s.backlight)),
+        ("clicker", Value::Bool(s.clicker != 0)),
     ])
+}
+
+fn about() -> Value {
+    // SAFETY: plain-old-data struct; C fills every field.
+    let mut a: About = unsafe { core::mem::zeroed() };
+    unsafe { pocketjs_host_about(&mut a) };
+    object(vec![
+        ("kind", string("ok")),
+        ("version", text(&a.version)),
+        ("diskMb", Value::I32(a.disk_mb)),
+        ("freeMb", Value::I32(a.free_mb)),
+    ])
+}
+
+/// `{kind: "ok", value}` from a host setter that returns the applied value
+fn applied(arg: Option<&Value>, set: unsafe extern "C" fn(i32) -> i32) -> Value {
+    match arg {
+        // SAFETY: plain call into the host.
+        Some(Value::I32(v)) => object(vec![("kind", string("ok")), ("value", Value::I32(unsafe { set(*v) }))]),
+        _ => object(vec![("kind", string("malformed"))]),
+    }
 }
 
 /// Answers every pending service request; deliveries apply on the next frame.
@@ -305,6 +347,10 @@ pub fn serve(ui: &mut Ui) {
                 _ => object(vec![("kind", string("malformed"))]),
             },
             (SYSTEM, "snapshot") => system(),
+            (SYSTEM, "about") => about(),
+            (SYSTEM, "setBrightness") => applied(r.args.first(), pocketjs_host_set_brightness),
+            (SYSTEM, "setBacklight") => applied(r.args.first(), pocketjs_host_set_backlight),
+            (SYSTEM, "setClicker") => applied(r.args.first(), pocketjs_host_set_clicker),
             (SYSTEM, "measure") => match (r.args.first(), r.args.get(1)) {
                 (Some(Value::String(text)), Some(Value::I32(slot))) => object(vec![
                     ("kind", string("ok")),

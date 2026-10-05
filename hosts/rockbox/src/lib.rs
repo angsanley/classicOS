@@ -118,6 +118,13 @@ static mut DAMAGE: DamageTracker<8> = DamageTracker::new();
 static mut TIMINGS: [u32; 3] = [0; 3];
 /// Wheel steps not yet delivered as focus moves.
 static mut FOCUS_STEPS: i32 = 0;
+/// Host time already turned into app ticks, µs.
+static mut CLOCK_US: u32 = 0;
+
+const TICK_HZ: u32 = 33;
+const TICK_US: u32 = 1_000_000 / TICK_HZ;
+/// Catch-up cap after a stall (USB mode, disk spin-up), so it skips instead of spinning.
+const MAX_CATCHUP: u32 = 8;
 
 /// A Rockbox scroll event is 4 of the wheel's 96 positions.
 const WHEEL_STEP_MILLIDEGREES: i32 = 15_000;
@@ -189,7 +196,7 @@ pub unsafe extern "C" fn pocketjs_init(heap: *mut u8, heap_len: usize, w: i32, h
     ui.set_model_services(services::NAMES.iter().map(|name| String::from(*name)));
     ui.core_mut().set_viewport(w as f32, h as f32);
     // Busy frames are 3 Rockbox ticks (33.3 Hz).
-    ui.core_mut().set_tick_rate(33);
+    ui.core_mut().set_tick_rate(TICK_HZ);
     if !ui.load_styles(&STYLES.0) {
         return -1;
     }
@@ -197,10 +204,11 @@ pub unsafe extern "C" fn pocketjs_init(heap: *mut u8, heap_len: usize, w: i32, h
         return -2;
     }
     APP = Some(Box::new(AppApp::new(RockboxHost(ui), app_props(), AppModel::default())));
+    CLOCK_US = pocketjs_host_usec();
     0
 }
 
-/// Advances one tick and repaints the damaged parts of `fb`, which must keep
+/// Advances the app clock to now and repaints the damaged parts of `fb`, which must keep
 /// its pixels between calls. Writes up to 8 `[x, y, w, h]` rectangles to
 /// `rects` and returns their count.
 #[no_mangle]
@@ -225,14 +233,29 @@ pub unsafe extern "C" fn pocketjs_frame(
     };
     *steps -= steps.signum();
     let t0 = pocketjs_host_usec();
-    app.frame(&Input {
-        buttons: to_btn(buttons),
-        pressed,
-        axis_deltas: [wheel.saturating_mul(WHEEL_STEP_MILLIDEGREES), 0],
-        ..Input::default()
-    });
-    #[cfg(feature = "services")]
-    services::serve(app.ui_mut());
+    // App time follows the host clock: the host frames slower when idle
+    // (10 Hz) or busy, so run one tick per elapsed tick period, input on the first.
+    let clock = &mut *addr_of_mut!(CLOCK_US);
+    // Input can wake the host early; that frame still ticks, and the clock may
+    // lead real time by up to one tick.
+    let lag = t0.wrapping_sub(*clock) as i32;
+    let due = if lag > 0 { lag as u32 / TICK_US } else { 0 };
+    let ticks = due.clamp(1, MAX_CATCHUP);
+    *clock = if due > MAX_CATCHUP || lag < -(TICK_US as i32) { t0 } else { clock.wrapping_add(ticks * TICK_US) };
+    for i in 0..ticks {
+        app.frame(&if i == 0 {
+            Input {
+                buttons: to_btn(buttons),
+                pressed,
+                axis_deltas: [wheel.saturating_mul(WHEEL_STEP_MILLIDEGREES), 0],
+                ..Input::default()
+            }
+        } else {
+            Input { buttons: to_btn(buttons), ..Input::default() }
+        });
+        #[cfg(feature = "services")]
+        services::serve(app.ui_mut());
+    }
     let t1 = pocketjs_host_usec();
     let core = app.ui_mut().core_mut();
     core.draw();

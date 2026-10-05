@@ -16,6 +16,7 @@ export default function Backlight(props: {
   status: string;
   time: string;
   batteryPx: i32;
+  plugged: boolean;
   onWheel: (delta: i32) => void;
   onSelect: () => void;
   onBack: () => void;
@@ -25,33 +26,33 @@ export default function Backlight(props: {
       <AxisHandler axis="primary" onDelta={(delta) => props.onWheel(delta)} />
       <ActionHandler button={BTN.CIRCLE} latched onPress={() => props.onSelect()} />
       <ActionHandler button={BTN.CROSS} latched onPress={() => props.onBack()} />
-      <StatusBar title="Backlight" dark status={props.status} time={props.time} clock batteryPx={props.batteryPx} />
+      <StatusBar title="Backlight" dark status={props.status} time={props.time} clock batteryPx={props.batteryPx} plugged={props.plugged} />
       <View class="absolute top-[34] left-[12] w-[296] flex-col gap-[4]">
         <MenuRow selected={props.selected} index={0} label="10 seconds" subtitle="" subtitleFits subtitleOffset={0} value="">
-          <View class="w-[24] h-[24]">
+          <View class="w-[24] h-[24] items-center justify-center">
             <Show when={props.current === 0}>
-              <Image src="icons/check.svg" class="w-[24] h-[24]" />
+              <Image src="icons/check.svg" class="w-[16] h-[16]" />
             </Show>
           </View>
         </MenuRow>
         <MenuRow selected={props.selected} index={1} label="30 seconds" subtitle="" subtitleFits subtitleOffset={0} value="">
-          <View class="w-[24] h-[24]">
+          <View class="w-[24] h-[24] items-center justify-center">
             <Show when={props.current === 1}>
-              <Image src="icons/check.svg" class="w-[24] h-[24]" />
+              <Image src="icons/check.svg" class="w-[16] h-[16]" />
             </Show>
           </View>
         </MenuRow>
         <MenuRow selected={props.selected} index={2} label="1 minute" subtitle="" subtitleFits subtitleOffset={0} value="">
-          <View class="w-[24] h-[24]">
+          <View class="w-[24] h-[24] items-center justify-center">
             <Show when={props.current === 2}>
-              <Image src="icons/check.svg" class="w-[24] h-[24]" />
+              <Image src="icons/check.svg" class="w-[16] h-[16]" />
             </Show>
           </View>
         </MenuRow>
         <MenuRow selected={props.selected} index={3} label="Always On" subtitle="" subtitleFits subtitleOffset={0} value="">
-          <View class="w-[24] h-[24]">
+          <View class="w-[24] h-[24] items-center justify-center">
             <Show when={props.current === 3}>
-              <Image src="icons/check.svg" class="w-[24] h-[24]" />
+              <Image src="icons/check.svg" class="w-[16] h-[16]" />
             </Show>
           </View>
         </MenuRow>

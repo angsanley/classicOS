@@ -13,7 +13,7 @@ import { BTN } from "@pocketjs/framework/input";
 import { onMount } from "@pocketjs/framework/solid/lifecycle";
 import {
   available, back, backlightIndex, backlightLabel, backlightOption, backlightSelect, backlightWheel,
-  batteryText, brightnessPx, clicker, brightnessWheel, capacity, settingsIndex, settingsSelect, settingsWheel, version,
+  batteryText, brightnessPx, clicker, plugged, brightnessWheel, capacity, settingsIndex, settingsSelect, settingsWheel, version,
   album, art, artBottom, artTop, artist, badge, batteryPx, date, elapsed, hasTrack,
   drawerIndex, drawerSelect, drawerWheel, musicIndex, musicScroll, musicSelect, musicWheel, openDrawer, poll, progressPx,
   remaining, screen, status, time, title, marqueeFits, marqueeOffset,
@@ -34,42 +34,42 @@ export default function Shell() {
       <Match when={screen() === "drawer"}>
         <Drawer
           selected={drawerIndex()}
-          status={status()} time={time()} batteryPx={batteryPx()}
+          status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
           onWheel={(delta) => drawerWheel(delta)} onSelect={() => drawerSelect()} onBack={() => back()}
         />
       </Match>
       <Match when={screen() === "music"}>
         <Music
           selected={musicIndex()} scroll={musicScroll()}
-          status={status()} time={time()} batteryPx={batteryPx()}
+          status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
           onWheel={(delta) => musicWheel(delta)} onSelect={() => musicSelect()} onBack={() => back()}
         />
       </Match>
       <Match when={screen() === "settings"}>
         <Settings
           selected={settingsIndex()} backlight={backlightLabel()} clicker={clicker()}
-          status={status()} time={time()} batteryPx={batteryPx()}
+          status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
           onWheel={(delta) => settingsWheel(delta)} onSelect={() => settingsSelect()} onBack={() => back()}
         />
       </Match>
       <Match when={screen() === "brightness"}>
         <Brightness
           fillPx={brightnessPx()}
-          status={status()} time={time()} batteryPx={batteryPx()}
+          status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
           onWheel={(delta) => brightnessWheel(delta)} onBack={() => back()}
         />
       </Match>
       <Match when={screen() === "backlight"}>
         <Backlight
           selected={backlightIndex()} current={backlightOption()}
-          status={status()} time={time()} batteryPx={batteryPx()}
+          status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
           onWheel={(delta) => backlightWheel(delta)} onSelect={() => backlightSelect()} onBack={() => back()}
         />
       </Match>
       <Match when={screen() === "about"}>
         <About
           version={version()} capacity={capacity()} available={available()} battery={batteryText()}
-          status={status()} time={time()} batteryPx={batteryPx()}
+          status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
           onBack={() => back()}
         />
       </Match>
@@ -83,12 +83,12 @@ export default function Shell() {
           {/* Dims the art-derived gradient so white text stays readable. */}
           <View class="absolute inset-0 bg-[#00000040]" />
 
-          <StatusBar title="Now Playing" dark={false} status={status()} time={time()} clock batteryPx={batteryPx()} />
+          <StatusBar title="Now Playing" dark={false} status={status()} time={time()} clock batteryPx={batteryPx()} plugged={plugged()} />
 
           <Show when={hasTrack()}>
             {/* Radius matches the 14 px corners baked into the art (ART_RADIUS). */}
             <View class="absolute top-[34] left-[16] w-[128] h-[128] rounded-[14px] bg-[#8a8d93] shadow-lg items-center justify-center">
-              <Image src="icons/music_note_2.svg" class="w-[40] h-[40]" />
+              <Image src="icons/music_note_2.svg" class="w-[64] h-[64]" />
             </View>
             <Show when={art() !== ""}>
               {/* The host swaps in the current track's art texture with rounded

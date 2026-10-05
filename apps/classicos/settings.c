@@ -12,6 +12,9 @@
 #include "file.h"
 #include "ata_idle_notify.h"
 #include "settings_classicos.h"
+#ifdef HAVE_HARDWARE_CLICK
+#include "piezo.h"
+#endif
 
 #define PREFS_FILE ROCKBOX_DIR "/classicos/settings.bin"
 #define PREFS_VERSION 2
@@ -85,6 +88,11 @@ int classicos_clicker(void)
 int classicos_set_clicker(int on)
 {
     on = on != 0;
+#if defined(HAVE_HARDWARE_CLICK) && !defined(SIMULATOR)
+    /* Turning it on beeps for 200 ms: confirms the piezo works. */
+    if (on && !prefs.clicker)
+        piezo_button_beep(true, true);
+#endif
     if (on != prefs.clicker) {
         prefs.clicker = on;
         prefs_changed();

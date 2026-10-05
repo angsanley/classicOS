@@ -10,8 +10,8 @@ export default function DrawerCell(props: { index: i32; selected: i32; label: st
   return (
     <View
       class={props.index === props.selected
-        ? "w-[72] h-[89] rounded-[16px] bg-[#00000014] flex-col items-center justify-center"
-        : "w-[72] h-[89] rounded-[16px] flex-col items-center justify-center"}
+        ? "w-[78] h-[89] rounded-[16px] bg-[#00000014] flex-col items-center justify-center"
+        : "w-[78] h-[89] rounded-[16px] flex-col items-center justify-center"}
     >
       {props.children}
       <Text class="text-xs text-[#1a1a1a]">{props.label}</Text>

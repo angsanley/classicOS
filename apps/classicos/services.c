@@ -45,7 +45,8 @@ struct pocketjs_playback {
 
 struct pocketjs_system {
     int32_t battery_percent;
-    int32_t charging;
+    int32_t charging; /* charging now */
+    int32_t plugged;  /* on external power, charging or full */
     int32_t hour;
     int32_t minute;
     int32_t weekday;
@@ -134,6 +135,7 @@ void pocketjs_host_system(struct pocketjs_system *out)
     out->battery_percent = battery_level();
 #if CONFIG_CHARGING
     out->charging = charging_state();
+    out->plugged = charger_inserted();
 #endif
     out->hour = tm->tm_hour;
     out->minute = tm->tm_min;

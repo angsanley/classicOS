@@ -30,6 +30,8 @@ export const [weekday, setWeekday] = createSignal<i32>(0);
 export const [day, setDay] = createSignal<i32>(1);
 export const [month, setMonth] = createSignal<i32>(1);
 export const [battery, setBattery] = createSignal<i32>(100);
+/** On external power (charging or full) */
+export const [plugged, setPlugged] = createSignal<boolean>(false);
 /** Volume in dB and the codec's range, from the host */
 export const [volume, setVolume] = createSignal<i32>(-25);
 export const [volumeMin, setVolumeMin] = createSignal<i32>(-89);
@@ -120,6 +122,7 @@ export async function poll(): Promise<void> {
         setDay(s.day);
         setMonth(s.month);
         setBattery(s.batteryPercent);
+        setPlugged(s.plugged);
         setBrightnessMin(s.brightnessMin);
         setBrightnessMax(s.brightnessMax);
         if (!brightnessPending) setBrightness(s.brightness);
@@ -255,8 +258,8 @@ export const progressPx = createMemo<i32>(() => (durationMs() > 0 ? idiv(elapsed
 /** "now", "drawer", "music", "settings", "brightness", "backlight" or "about" */
 export const [screen, setScreen] = createSignal<string>("drawer");
 
-/** Drawer apps, row-major in its 2x4 grid: Music, Settings */
-const DRAWER_ITEMS: i32 = 2;
+/** Drawer apps, row-major in its 2x4 grid: Now Playing, Music, Settings */
+const DRAWER_ITEMS: i32 = 3;
 /** Music rows: Playlists, Artists, Albums, Songs */
 const MUSIC_ITEMS: i32 = 4;
 /** Selections are kept across visits so a screen reopens where it was. */
@@ -316,7 +319,11 @@ export function drawerWheel(delta: i32): void {
 }
 
 export function drawerSelect(): void {
-  open(drawerIndex() === 0 ? "music" : "settings");
+  // Now Playing with nothing loaded does nothing; an empty
+  // "Not Playing" state can come later.
+  if (drawerIndex() === 0) {
+    if (hasTrack()) go("now");
+  } else open(drawerIndex() === 1 ? "music" : "settings");
 }
 
 /** Leaves Now Playing for the drawer once the queue ends. Called per poll. */

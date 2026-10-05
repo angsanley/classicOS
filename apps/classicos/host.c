@@ -18,6 +18,7 @@
 #include "media.h"
 #include "core_alloc.h"
 #include "settings_classicos.h"
+#include "backlight.h"
 #ifdef HAVE_HARDWARE_CLICK
 #include "piezo.h"
 #endif
@@ -181,6 +182,9 @@ void classicos_host_run(void)
     int rects[8][4], count, ret;
     long b = BUTTON_NONE, now, left, frame_start, last_input, last_active, play_down = 0;
     bool boosted = false;
+#ifdef HAS_BUTTON_HOLD
+    bool held_switch = button_hold();
+#endif
 #ifdef PJS_HUD
     struct perf perf = { 0 };
     uint32_t t[3], lcd_start = 0;
@@ -238,6 +242,15 @@ void classicos_host_run(void)
                 (!(b & BUTTON_REPEAT) || (b & (BUTTON_SCROLL_FWD | BUTTON_SCROLL_BACK))))
                 click();
         }
+
+#ifdef HAS_BUTTON_HOLD
+        /* Like the original iPod, flipping the hold switch either way lights
+         * the backlight (Rockbox only does so on unlock); it then times out. */
+        if (button_hold() != held_switch) {
+            held_switch = !held_switch;
+            backlight_on();
+        }
+#endif
 
         /* hold Play = power off until Control Center exists */
         if ((held & PJ_PLAY) && play_down &&

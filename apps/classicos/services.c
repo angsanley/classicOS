@@ -32,6 +32,9 @@ struct pocketjs_playback {
     char title[128];
     char artist[128];
     char album[128];
+    char codec[16]; /* Rockbox format label, e.g. "FLAC", "MP3" */
+    int32_t frequency; /* Hz */
+    int32_t bitrate; /* kbps */
 };
 
 struct pocketjs_system {
@@ -89,6 +92,10 @@ void pocketjs_host_playback(struct pocketjs_playback *out)
         strlcpy(out->artist, id3->artist, sizeof(out->artist));
     if (id3->album)
         strlcpy(out->album, id3->album, sizeof(out->album));
+    if (id3->codectype < AFMT_NUM_CODECS)
+        strlcpy(out->codec, audio_formats[id3->codectype].label, sizeof(out->codec));
+    out->frequency = id3->frequency;
+    out->bitrate = id3->bitrate;
 }
 
 void pocketjs_host_system(struct pocketjs_system *out)

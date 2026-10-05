@@ -4,7 +4,7 @@
 
 import { createSignal } from "solid-js";
 import { createMemo } from "@pocketjs/framework/solid/reactive";
-import { after, idiv, imod, type Color, type i32 } from "@pocketjs/framework/solid/std";
+import { after, idiv, imod, len, type Color, type i32 } from "@pocketjs/framework/solid/std";
 import { playback } from "@pocketjs/framework/rockbox/playback/model";
 import { system } from "@pocketjs/framework/rockbox/system/model";
 
@@ -14,6 +14,10 @@ export const [titleWidth, setTitleWidth] = createSignal<i32>(0);
 /** Marquee scroll offset of a title wider than TITLE_BOX, px */
 export const [titleOffset, setTitleOffset] = createSignal<i32>(0);
 export const [artist, setArtist] = createSignal<string>("");
+export const [album, setAlbum] = createSignal<string>("");
+export const [codec, setCodec] = createSignal<string>("");
+export const [frequency, setFrequency] = createSignal<i32>(0);
+export const [bitrate, setBitrate] = createSignal<i32>(0);
 export const [elapsedMs, setElapsedMs] = createSignal<i32>(0);
 export const [durationMs, setDurationMs] = createSignal<i32>(0);
 export const [art, setArt] = createSignal<string>("");
@@ -42,6 +46,10 @@ export async function poll(): Promise<void> {
         setTitle(p.title);
         setTitleWidth(p.titleWidth);
         setArtist(p.artist);
+        setAlbum(p.album);
+        setCodec(p.codec);
+        setFrequency(p.frequency);
+        setBitrate(p.bitrate);
         setElapsedMs(p.elapsedMs);
         setDurationMs(p.durationMs);
         setArt(p.art);
@@ -62,8 +70,8 @@ export async function poll(): Promise<void> {
   }
 }
 
-/** Title box width in the now-playing card, px */
-export const TITLE_BOX: i32 = 268;
+/** Title column width beside the art, px */
+export const TITLE_BOX: i32 = 146;
 
 // iOS-style marquee for titles wider than TITLE_BOX: the view renders the
 // title twice, MARQUEE_GAP apart; scrolling by one title + gap lands on the
@@ -99,5 +107,29 @@ export const time = createMemo<string>(() => `${hour()}:${pad2(minute())}`);
 export const date = createMemo<string>(() => `${WEEKDAYS[imod(weekday(), 7)]} ${day()} ${MONTHS[imod(month() - 1, 12)]}`);
 export const hasTrack = createMemo<boolean>(() => status() !== "stopped");
 export const titleFits = createMemo<boolean>(() => titleWidth() <= TITLE_BOX);
-/** Progress bar width in px for a 268 px track. */
-export const progressPx = createMemo<i32>(() => (durationMs() > 0 ? idiv(elapsedMs() * 268, durationMs()) : 0));
+export const paused = createMemo<boolean>(() => status() === "paused");
+
+function formatTime(ms: i32): string {
+  const s = idiv(ms, 1000);
+  return `${idiv(s, 60)}:${pad2(imod(s, 60))}`;
+}
+export const elapsed = createMemo<string>(() => formatTime(elapsedMs()));
+export const remaining = createMemo<string>(() => `-${formatTime(durationMs() - elapsedMs())}`);
+
+const LOSSLESS: string[] = ["AIFF", "WAV", "WAVE64", "FLAC", "ALAC", "WV", "APE", "TTA", "SHN"];
+function isLossless(name: string): boolean {
+  for (let i: i32 = 0; i < len(LOSSLESS); i++) {
+    if (LOSSLESS[i] === name) return true;
+  }
+  return false;
+}
+/** Quality badge in Apple's wording; "" hides it. */
+export const badge = createMemo<string>(() => {
+  if (codec() === "") return "";
+  if (isLossless(codec())) return frequency() > 48000 ? "Hi-Res Lossless" : "Lossless";
+  return bitrate() > 0 ? `${codec()} ${bitrate()} kbps` : codec();
+});
+/** Battery fill in px inside the 24 px battery outline (16 px interior). */
+export const batteryPx = createMemo<i32>(() => idiv(battery() * 16, 100));
+/** Progress bar width in px for a 288 px track. */
+export const progressPx = createMemo<i32>(() => (durationMs() > 0 ? idiv(elapsedMs() * 288, durationMs()) : 0));

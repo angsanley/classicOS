@@ -1,4 +1,4 @@
 import { mount } from "@pocketjs/framework/solid";
-import Lock from "./app.tsx";
+import NowPlaying from "./app.tsx";
 
-mount(() => <Lock />);
+mount(() => <NowPlaying />);

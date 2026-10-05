@@ -48,7 +48,8 @@ export async function poll(): Promise<void> {
     if (volumePending) {
       volumePending = false;
       const v = await playback.setVolume(volume());
-      if (v.kind === "ok") setVolume(v.volume);
+      // Ignore the reply if the wheel moved again meanwhile; it is stale.
+      if (v.kind === "ok" && !volumePending) setVolume(v.volume);
     }
     if (imod(step, 8) === 0) {
       const p = await playback.snapshot();
@@ -114,8 +115,8 @@ function marqueeTick(): void {
 }
 
 // Wheel = volume on Now Playing: the overlay and the shown value update at
-// once; poll() sends the latest value to the host on its next tick and hides
-// the overlay ~2 s after the last turn.
+// once; poll() sends only the latest value, one request at a time (turns in
+// between coalesce), and hides the overlay ~2 s after the last turn.
 const VOLUME_SHOW_TICKS: i32 = 60;
 /** The wheel axis reports millidegrees; one click is 15000
  * (WHEEL_STEP_MILLIDEGREES in pocketjs/hosts/rockbox/src/lib.rs). */

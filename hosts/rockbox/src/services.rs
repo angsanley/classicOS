@@ -28,6 +28,9 @@ struct Playback {
     title: [u8; 128],
     artist: [u8; 128],
     album: [u8; 128],
+    codec: [u8; 16],
+    frequency: i32,
+    bitrate: i32,
 }
 
 /// Mirrors `struct pocketjs_system` on the C side.
@@ -236,9 +239,9 @@ fn art_color(top: bool) -> Value {
     string(color)
 }
 
-/// Font slot of the title the shell measures for its marquee: text-sm
-/// font-bold (14 px bold, see fontSlotFor in framework/compiler/tailwind.ts).
-const TITLE_FONT_SLOT: u8 = 8;
+/// Font slot of the title the shell measures for its marquee: text-xl
+/// font-bold (20 px bold, see fontSlotFor in framework/compiler/tailwind.ts).
+const TITLE_FONT_SLOT: u8 = 11;
 
 fn playback(ui: &mut Ui) -> Value {
     // SAFETY: plain-old-data struct; C fills every field.
@@ -262,6 +265,9 @@ fn playback(ui: &mut Ui) -> Value {
         ("durationMs", Value::I32(p.duration_ms)),
         ("volume", Value::I32(p.volume)),
         ("shuffle", Value::Bool(p.shuffle != 0)),
+        ("codec", text(&p.codec)),
+        ("frequency", Value::I32(p.frequency)),
+        ("bitrate", Value::I32(p.bitrate)),
         ("art", Value::String(album_art(ui))),
         ("artTop", art_color(true)),
         ("artBottom", art_color(false)),

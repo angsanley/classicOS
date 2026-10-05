@@ -11,7 +11,7 @@ export type PlaybackResult =
       index: i32;
       path: string;
       title: string;
-      /** Rendered width of title in text-sm bold, px (classicOS) */
+      /** Rendered width of title in text-xl bold, px (classicOS) */
       titleWidth: i32;
       artist: string;
       album: string;
@@ -19,6 +19,11 @@ export type PlaybackResult =
       durationMs: i32;
       volume: i32;
       shuffle: boolean;
+      /** Rockbox format label ("FLAC", "MP3", "AAC"...), sample rate in Hz and
+       * bitrate in kbps (classicOS) */
+      codec: string;
+      frequency: i32;
+      bitrate: i32;
       /** Changes per album art, "" without art (classicOS) */
       art: string;
       /** Average colour of the art's top and bottom halves (classicOS) */

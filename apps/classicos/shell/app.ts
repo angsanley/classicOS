@@ -10,9 +10,10 @@ import { system } from "@pocketjs/framework/rockbox/system/model";
 
 export const [status, setStatus] = createSignal<string>("stopped");
 export const [title, setTitle] = createSignal<string>("");
-export const [titleWidth, setTitleWidth] = createSignal<i32>(0);
-/** Marquee scroll offset of a title wider than TITLE_BOX, px */
-export const [titleOffset, setTitleOffset] = createSignal<i32>(0);
+/** Width of marqueeText() in px, from system.measure */
+export const [marqueeWidth, setMarqueeWidth] = createSignal<i32>(0);
+/** Scroll offset of marqueeText() when wider than its box, px */
+export const [marqueeOffset, setMarqueeOffset] = createSignal<i32>(0);
 export const [artist, setArtist] = createSignal<string>("");
 export const [album, setAlbum] = createSignal<string>("");
 export const [codec, setCodec] = createSignal<string>("");
@@ -44,6 +45,11 @@ const MONTHS: string[] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"
 export async function poll(): Promise<void> {
   for (let step: i32 = 0; step < 2147483647; step++) {
     marqueeTick();
+    if (marqueeMeasured !== marqueeText()) {
+      marqueeMeasured = marqueeText();
+      const m = await system.measure(marqueeMeasured, marqueeSlot());
+      if (m.kind === "ok" && marqueeMeasured === marqueeText()) setMarqueeWidth(m.width);
+    }
     if (volumeSendIn > 0) volumeSendIn -= 1;
     if (volumePending && volumeSendIn === 0) {
       volumePending = false;
@@ -57,7 +63,6 @@ export async function poll(): Promise<void> {
       if (p.kind === "ok") {
         setStatus(p.status);
         setTitle(p.title);
-        setTitleWidth(p.titleWidth);
         setArtist(p.artist);
         setAlbum(p.album);
         setCodec(p.codec);
@@ -88,13 +93,16 @@ export async function poll(): Promise<void> {
 
 /** Title column width beside the art, px */
 export const TITLE_BOX: i32 = 146;
+/** Subtitle width in the menu's Now Playing row, px */
+export const LINE_BOX: i32 = 220;
 
-// iOS-style marquee for titles wider than TITLE_BOX: the view renders the
-// title twice, MARQUEE_GAP apart; scrolling by one title + gap lands on the
-// second copy, so the loop restarts invisibly. Rests 2 s at the start, then
-// moves 1 px per poll() step.
+// iOS-style marquee for the one text on screen that may overflow (see
+// marqueeText): the view renders it twice, MARQUEE_GAP apart; scrolling by one
+// text + gap lands on the second copy, so the loop restarts invisibly. Rests
+// 2 s at the start, then moves 1 px per poll() step.
 export const MARQUEE_GAP: i32 = 40;
-let marqueeTitle: string = "";
+let marqueeShown: string = "";
+let marqueeMeasured: string = "";
 let marqueeResting: boolean = true;
 
 async function restMarquee(): Promise<void> {
@@ -104,17 +112,18 @@ async function restMarquee(): Promise<void> {
 }
 
 function marqueeTick(): void {
-  if (title() !== marqueeTitle) {
-    marqueeTitle = title();
-    setTitleOffset(0);
+  if (marqueeText() !== marqueeShown) {
+    marqueeShown = marqueeText();
+    setMarqueeWidth(0);
+    setMarqueeOffset(0);
     cancel(restMarquee);
     restMarquee();
-  } else if (titleFits() || marqueeResting) {
+  } else if (marqueeFits() || marqueeResting) {
     return;
-  } else if (titleOffset() < titleWidth() + MARQUEE_GAP) {
-    setTitleOffset(titleOffset() + 1);
+  } else if (marqueeOffset() < marqueeWidth() + MARQUEE_GAP) {
+    setMarqueeOffset(marqueeOffset() + 1);
   } else {
-    setTitleOffset(0);
+    setMarqueeOffset(0);
     restMarquee();
   }
 }
@@ -124,7 +133,7 @@ function marqueeTick(): void {
 // between coalesce). hideVolume hides the overlay 2 s after the last turn.
 /** The wheel axis reports millidegrees; one click is 15000
  * (WHEEL_STEP_MILLIDEGREES in pocketjs/hosts/rockbox/src/lib.rs). */
-const WHEEL_STEP: i32 = 15000;
+export const WHEEL_STEP: i32 = 15000;
 /** The HUD's 16 segments map to the useful range: 0 = mute (codec
  * minimum), 1..16 = -60 dB up to 0 dB. One wheel click = one segment. */
 const SEGMENTS: i32 = 16;
@@ -165,8 +174,9 @@ function pad2(n: i32): string {
 
 export const time = createMemo<string>(() => `${hour()}:${pad2(minute())}`);
 export const date = createMemo<string>(() => `${WEEKDAYS[imod(weekday(), 7)]} ${day()} ${MONTHS[imod(month() - 1, 12)]}`);
+/** The menu's Now Playing subtitle */
+export const nowPlayingLine = createMemo<string>(() => (status() === "stopped" ? "" : artist() !== "" ? `${title()} · ${artist()}` : title()));
 export const hasTrack = createMemo<boolean>(() => status() !== "stopped");
-export const titleFits = createMemo<boolean>(() => titleWidth() <= TITLE_BOX);
 export const paused = createMemo<boolean>(() => status() === "paused");
 
 function formatTime(ms: i32): string {
@@ -200,3 +210,65 @@ export const volumeLitPx = createMemo<i32>(() => dbSegment(volume()) * 11);
 export const batteryPx = createMemo<i32>(() => idiv(battery() * 16, 100));
 /** Progress bar width in px for a 288 px track. */
 export const progressPx = createMemo<i32>(() => (durationMs() > 0 ? idiv(elapsedMs() * 288, durationMs()) : 0));
+
+// Screens and navigation. One screen is mounted at a time (the root's
+// Switch unmounts the rest). Select opens, Menu goes back; the back target is
+// fixed per screen until the library browser needs a stack.
+
+export const [screen, setScreen] = createSignal<string>("now");
+
+/** Music menu rows, top to bottom: Now Playing, Playlists, Artists, Albums,
+ * Songs, Shuffle, Settings */
+export const MENU_ITEMS: i32 = 7;
+/** Kept across visits so the menu reopens on the last row */
+export const [menuIndex, setMenuIndex] = createSignal<i32>(0);
+/** Menu scroll in px; moves only to keep the selected row in view */
+export const [menuScroll, setMenuScroll] = createSignal<i32>(0);
+/** Row height + gap, and the list's visible height below the status bar */
+const MENU_PITCH: i32 = 48;
+const MENU_ROW: i32 = 44;
+const MENU_VIEW: i32 = 206;
+
+/** The menu goes back to Now Playing after this long untouched, if something plays. */
+const IDLE_RETURN_MS: i32 = 30000;
+
+async function idleReturn(): Promise<void> {
+  await after(IDLE_RETURN_MS);
+  if (hasTrack()) setScreen("now");
+}
+
+function touched(): void {
+  cancel(idleReturn);
+  idleReturn();
+}
+
+export function openMenu(): void {
+  setScreen("music");
+  touched();
+}
+
+export function menuWheel(delta: i32): void {
+  const next = menuIndex() + idiv(delta, WHEEL_STEP);
+  const index = next < 0 ? 0 : next >= MENU_ITEMS ? MENU_ITEMS - 1 : next;
+  setMenuIndex(index);
+  const top = index * MENU_PITCH;
+  if (top < menuScroll()) setMenuScroll(top);
+  else if (top + MENU_ROW > menuScroll() + MENU_VIEW) setMenuScroll(top + MENU_ROW - MENU_VIEW);
+  touched();
+}
+
+export function menuSelect(): void {
+  touched();
+  // only Now Playing is built; the library rows come next
+  if (menuIndex() === 0) {
+    cancel(idleReturn);
+    setScreen("now");
+  }
+}
+
+/** The text the marquee drives: Now Playing's title, or the menu's Now
+ * Playing subtitle while that row is selected. Font slots follow fontSlotFor
+ * (framework/compiler/tailwind.ts): 11 = text-xl bold, 0 = text-xs. */
+export const marqueeText = createMemo<string>(() => (screen() === "music" ? (menuIndex() === 0 ? nowPlayingLine() : "") : title()));
+const marqueeSlot = createMemo<i32>(() => (screen() === "music" ? 0 : 11));
+export const marqueeFits = createMemo<boolean>(() => marqueeWidth() <= (screen() === "music" ? LINE_BOX : TITLE_BOX));

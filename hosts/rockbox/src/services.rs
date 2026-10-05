@@ -40,6 +40,7 @@ struct Playback {
 struct System {
     battery_percent: i32,
     charging: i32,
+    plugged: i32,
     hour: i32,
     minute: i32,
     weekday: i32,
@@ -298,6 +299,7 @@ fn system() -> Value {
         ("kind", string("ok")),
         ("batteryPercent", Value::I32(s.battery_percent)),
         ("charging", Value::Bool(s.charging != 0)),
+        ("plugged", Value::Bool(s.plugged != 0)),
         ("hour", Value::I32(s.hour)),
         ("minute", Value::I32(s.minute)),
         ("weekday", Value::I32(s.weekday)),

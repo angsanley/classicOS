@@ -45,8 +45,10 @@ export async function poll(): Promise<void> {
   for (let step: i32 = 0; step < 2147483647; step++) {
     marqueeTick();
     volumeTick();
-    if (volumePending) {
+    if (volumeSendIn > 0) volumeSendIn -= 1;
+    if (volumePending && volumeSendIn === 0) {
       volumePending = false;
+      volumeSendIn = VOLUME_SEND_TICKS;
       const v = await playback.setVolume(volume());
       // Ignore the reply if the wheel moved again meanwhile; it is stale.
       if (v.kind === "ok" && !volumePending) setVolume(v.volume);
@@ -135,6 +137,10 @@ function dbSegment(db: i32): i32 {
   return seg > SEGMENTS ? SEGMENTS : seg;
 }
 let volumePending: boolean = false;
+/** At most one codec write per 3 ticks (~100 ms) while turning; each is an
+ * I2C transfer. The latest value is always sent once the wheel stops. */
+const VOLUME_SEND_TICKS: i32 = 3;
+let volumeSendIn: i32 = 0;
 let volumeHideIn: i32 = 0;
 
 export function wheel(delta: i32): void {
@@ -189,9 +195,7 @@ export const volumeLevel = createMemo<i32>(() => {
   const seg = dbSegment(volume());
   return seg === 0 ? 0 : seg <= 5 ? 1 : seg <= 10 ? 2 : 3;
 });
-/** Volume HUD: 16 segments, 8 px wide with 3 px gaps (11 px pitch) */
-export const [volumeSegments, setVolumeSegments] = createSignal<i32[]>([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
-/** Width of the lit part of the segment bar, px */
+/** Fill width of the HUD's 176 px level bar: 11 px per step */
 export const volumeLitPx = createMemo<i32>(() => dbSegment(volume()) * 11);
 export const batteryPx = createMemo<i32>(() => idiv(battery() * 16, 100));
 /** Progress bar width in px for a 288 px track. */

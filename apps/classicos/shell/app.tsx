@@ -4,12 +4,12 @@
 // Play/Prev/Next are hardware keys. Nothing playing: big clock.
 
 import { Show } from "solid-js";
-import { AxisHandler, For, Image, Text, View } from "@pocketjs/framework/solid/components";
+import { AxisHandler, Image, Text, View } from "@pocketjs/framework/solid/components";
 import { onMount } from "@pocketjs/framework/solid/lifecycle";
 import {
   album, art, artBottom, artTop, artist, badge, batteryPx, date, elapsed, hasTrack,
   paused, poll, progressPx, remaining, time, title, titleFits, titleOffset,
-  volumeLevel, volumeLitPx, volumeSegments, volumeShown, wheel,
+  volumeLevel, volumeLitPx, volumeShown, wheel,
 } from "./app";
 
 export default function NowPlaying() {
@@ -106,23 +106,15 @@ export default function NowPlaying() {
       </Show>
       <Show when={volumeShown()}>
         {/* Volume HUD (macOS style): an indicator, not a slider; the wheel
-            drives it. Floats over the content. */}
-        <View class="absolute top-[184] left-[44] w-[232] h-[34] rounded-[17px] bg-[#1f1f21e0] flex-row items-center px-[14] gap-[10]">
+            drives it. Floats over the content; kept to a few nodes and opaque
+            since PocketJS rebuilds the draw list every frame. */}
+        <View class="absolute top-[184] left-[44] w-[232] h-[34] rounded-[17px] bg-[#1f1f21] flex-row items-center px-[14] gap-[10]">
           <Show when={volumeLevel() === 0}><Image src="icons/speaker_slash_fill.svg" class="w-[16] h-[16]" /></Show>
           <Show when={volumeLevel() === 1}><Image src="icons/speaker_1_fill.svg" class="w-[16] h-[16]" /></Show>
           <Show when={volumeLevel() === 2}><Image src="icons/speaker_2_fill.svg" class="w-[16] h-[16]" /></Show>
           <Show when={volumeLevel() === 3}><Image src="icons/speaker_3_fill.svg" class="w-[16] h-[16]" /></Show>
-          <View class="w-[173] h-[3]">
-            <View class="absolute top-0 left-0 flex-row gap-[3]">
-              <For each={volumeSegments()} by={(i) => i}>
-                {(_i) => <View class="w-[8] h-[3] rounded-[1px] bg-[#ffffff40]" />}
-              </For>
-            </View>
-            <View class="absolute top-0 left-0 h-[3] flex-row gap-[3] overflow-hidden" style={{ width: volumeLitPx() }}>
-              <For each={volumeSegments()} by={(i) => i}>
-                {(_i) => <View class="w-[8] h-[3] rounded-[1px] bg-white shrink-0" />}
-              </For>
-            </View>
+          <View class="w-[176] h-[4] rounded-[2px] bg-[#ffffff40]">
+            <View class="h-[4] rounded-[2px] bg-white" style={{ width: volumeLitPx() }} />
           </View>
         </View>
       </Show>

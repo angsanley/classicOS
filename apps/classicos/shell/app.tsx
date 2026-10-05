@@ -14,12 +14,13 @@ import { onMount } from "@pocketjs/framework/solid/lifecycle";
 import {
   available, back, backlightIndex, backlightLabel, backlightOption, backlightSelect, backlightWheel,
   batteryText, brightnessPx, clicker, plugged, brightnessWheel, capacity, settingsIndex, settingsSelect, settingsWheel, version,
-  album, art, artBottom, artTop, artist, badge, batteryPx, date, elapsed, hasTrack,
+  album, art, artistAlbum, date, hold, artBottom, artTop, artist, badge, batteryPx, date, elapsed, hasTrack,
   drawerIndex, drawerSelect, drawerWheel, musicIndex, musicScroll, musicSelect, musicWheel, openDrawer, poll, progressPx,
   remaining, screen, status, time, title, marqueeFits, marqueeOffset,
   volumeLevel, volumeLitPx, volumeShown, wheel,
 } from "./app";
 import Drawer from "./Drawer.tsx";
+import Hold from "./Hold.tsx";
 import Music from "./Music.tsx";
 import About from "./About.tsx";
 import Backlight from "./Backlight.tsx";
@@ -30,6 +31,14 @@ import StatusBar from "./StatusBar.tsx";
 export default function Shell() {
   onMount(poll);
   return (
+    <>
+    <Show when={hold()}>
+      <Hold
+        hasTrack={hasTrack()} hasArt={art() !== ""} title={title()} subtitle={artistAlbum()} date={date()}
+        status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
+      />
+    </Show>
+    <Show when={!hold()}>
     <Switch>
       <Match when={screen() === "drawer"}>
         <Drawer
@@ -83,7 +92,7 @@ export default function Shell() {
           {/* Dims the art-derived gradient so white text stays readable. */}
           <View class="absolute inset-0 bg-[#00000040]" />
 
-          <StatusBar title="Now Playing" dark={false} status={status()} time={time()} clock batteryPx={batteryPx()} plugged={plugged()} />
+          <StatusBar title="Now Playing" lock={false} dark={false} status={status()} time={time()} clock batteryPx={batteryPx()} plugged={plugged()} />
 
           <Show when={hasTrack()}>
             {/* Radius matches the 14 px corners baked into the art (ART_RADIUS). */}
@@ -153,5 +162,7 @@ export default function Shell() {
         </View>
       </Match>
     </Switch>
+    </Show>
+    </>
   );
 }

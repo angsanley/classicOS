@@ -21,7 +21,7 @@ export default function Brightness(props: {
       <AxisHandler axis="primary" onDelta={(delta) => props.onWheel(delta)} />
       <ActionHandler button={BTN.CIRCLE} latched onPress={() => props.onBack()} />
       <ActionHandler button={BTN.CROSS} latched onPress={() => props.onBack()} />
-      <StatusBar title="Brightness" dark status={props.status} time={props.time} clock batteryPx={props.batteryPx} plugged={props.plugged} />
+      <StatusBar title="Brightness" lock={false} dark status={props.status} time={props.time} clock batteryPx={props.batteryPx} plugged={props.plugged} />
       <View class="absolute top-[26] left-0 right-0 bottom-0 flex-row items-center justify-center gap-[8]">
         <Image src="icons/sun_min.svg" class="w-[16] h-[16]" />
         <View class="w-[220] h-[6] rounded-[3px] bg-[#d1d1d6]">

@@ -23,7 +23,7 @@ export default function Music(props: {
       <AxisHandler axis="primary" onDelta={(delta) => props.onWheel(delta)} />
       <ActionHandler button={BTN.CIRCLE} latched onPress={() => props.onSelect()} />
       <ActionHandler button={BTN.CROSS} latched onPress={() => props.onBack()} />
-      <StatusBar title="Music" dark status={props.status} time={props.time} clock batteryPx={props.batteryPx} plugged={props.plugged} />
+      <StatusBar title="Music" lock={false} dark status={props.status} time={props.time} clock batteryPx={props.batteryPx} plugged={props.plugged} />
       <View class="absolute top-[30] left-[12] w-[296] h-[210] overflow-hidden">
         <View class="absolute top-0 left-0 w-[296] flex-col gap-[4]" style={{ translateY: -props.scroll }}>
           <MenuRow selected={props.selected} index={0} label="Playlists" subtitle="" subtitleFits subtitleOffset={0} value="">

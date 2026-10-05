@@ -23,7 +23,7 @@ export default function Drawer(props: {
       <AxisHandler axis="primary" onDelta={(delta) => props.onWheel(delta)} />
       <ActionHandler button={BTN.CIRCLE} latched onPress={() => props.onSelect()} />
       <ActionHandler button={BTN.CROSS} latched onPress={() => props.onBack()} />
-      <StatusBar title="iPod" dark status={props.status} time={props.time} clock batteryPx={props.batteryPx} plugged={props.plugged} />
+      <StatusBar title="iPod" lock={false} dark status={props.status} time={props.time} clock batteryPx={props.batteryPx} plugged={props.plugged} />
       {/* Grid: 4 x 78 px cells edge to edge (only the focused one has a
           background), centred; second row reserved. */}
       {/* Icons are 52 px drawn 1:1 inside a 64 px transparent texture (the

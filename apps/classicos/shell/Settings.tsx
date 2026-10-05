@@ -25,7 +25,7 @@ export default function Settings(props: {
       <AxisHandler axis="primary" onDelta={(delta) => props.onWheel(delta)} />
       <ActionHandler button={BTN.CIRCLE} latched onPress={() => props.onSelect()} />
       <ActionHandler button={BTN.CROSS} latched onPress={() => props.onBack()} />
-      <StatusBar title="Settings" dark status={props.status} time={props.time} clock batteryPx={props.batteryPx} plugged={props.plugged} />
+      <StatusBar title="Settings" lock={false} dark status={props.status} time={props.time} clock batteryPx={props.batteryPx} plugged={props.plugged} />
       <View class="absolute top-[34] left-[12] w-[296] flex-col gap-[4]">
         <MenuRow selected={props.selected} index={0} label="Brightness" subtitle="" subtitleFits subtitleOffset={0} value="">
           <View class="w-[28] h-[28] rounded-full bg-[#007aff] items-center justify-center">

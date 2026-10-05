@@ -17,6 +17,7 @@
 #include "playback.h"
 #include "services.h"
 #include "appevents.h"
+#include "button.h"
 #include "mv.h"
 #include "rbversion.h"
 #include "settings_classicos.h"
@@ -47,6 +48,7 @@ struct pocketjs_system {
     int32_t battery_percent;
     int32_t charging; /* charging now */
     int32_t plugged;  /* on external power, charging or full */
+    int32_t hold;     /* hold switch on */
     int32_t hour;
     int32_t minute;
     int32_t weekday;
@@ -136,6 +138,9 @@ void pocketjs_host_system(struct pocketjs_system *out)
 #if CONFIG_CHARGING
     out->charging = charging_state();
     out->plugged = charger_inserted();
+#endif
+#ifdef HAS_BUTTON_HOLD
+    out->hold = button_hold();
 #endif
     out->hour = tm->tm_hour;
     out->minute = tm->tm_min;

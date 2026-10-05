@@ -8,6 +8,8 @@ import type { i32 } from "@pocketjs/framework/solid/std";
 
 export default function StatusBar(props: {
   title: string;
+  /** Lock glyph before the title (Hold screen) */
+  lock: boolean;
   dark: boolean;
   /** "playing", "paused" or "stopped" */
   status: string;
@@ -22,7 +24,10 @@ export default function StatusBar(props: {
   return (
     <View class="absolute top-0 left-0 right-0 h-[26] flex-row items-center justify-between pl-[14] pr-[10]">
       {/* flex-1 holds the right group in place when the title is empty. */}
-      <View class="flex-1">
+      <View class="flex-1 flex-row items-center gap-[2]">
+        <Show when={props.lock}>
+          <Image src="icons/lock_fill.svg" class="w-[16] h-[16]" />
+        </Show>
         <Text class={props.dark ? "text-sm text-[#1a1a1a] font-bold" : "text-sm text-white font-bold"}>{props.title}</Text>
       </View>
       {/* Icons are drawn 1:1 in power-of-two canvases with transparent margins

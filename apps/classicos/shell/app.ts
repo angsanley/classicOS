@@ -32,6 +32,8 @@ export const [month, setMonth] = createSignal<i32>(1);
 export const [battery, setBattery] = createSignal<i32>(100);
 /** On external power (charging or full) */
 export const [plugged, setPlugged] = createSignal<boolean>(false);
+/** Hold switch on: the Hold screen replaces whatever is shown */
+export const [hold, setHold] = createSignal<boolean>(false);
 /** Volume in dB and the codec's range, from the host */
 export const [volume, setVolume] = createSignal<i32>(-25);
 export const [volumeMin, setVolumeMin] = createSignal<i32>(-89);
@@ -51,9 +53,10 @@ export const [freeMb, setFreeMb] = createSignal<i32>(0);
 const WEEKDAYS: string[] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS: string[] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-// One task (a component gets one onMount): ticks every 33 ms for the
-// marquee and polls the host services every 8th tick (~4 Hz). MicroTS tasks
-// need a bounded loop; this bound outlasts any battery.
+// One task (a component gets one onMount): steps the marquee, sends pending
+// settings, polls playback every 8th step and system state (clock, battery,
+// hold switch) every 2nd. MicroTS tasks need a bounded loop; this bound
+// outlasts any battery.
 export async function poll(): Promise<void> {
   for (let step: i32 = 0; step < 2147483647; step++) {
     marqueeTick();
@@ -114,6 +117,9 @@ export async function poll(): Promise<void> {
         setArtBottom(p.art !== "" ? p.artBottom : "#16181c");
       }
       leaveStoppedNowPlaying();
+    }
+    // System state every 2nd step (~150 ms) so the hold switch shows quickly.
+    if (imod(step, 2) === 0) {
       const s = await system.snapshot();
       if (s.kind === "ok") {
         setHour(s.hour);
@@ -123,6 +129,7 @@ export async function poll(): Promise<void> {
         setMonth(s.month);
         setBattery(s.batteryPercent);
         setPlugged(s.plugged);
+        setHold(s.hold);
         setBrightnessMin(s.brightnessMin);
         setBrightnessMax(s.brightnessMax);
         if (!brightnessPending) setBrightness(s.brightness);
@@ -215,6 +222,8 @@ function pad2(n: i32): string {
 
 export const time = createMemo<string>(() => `${hour()}:${pad2(minute())}`);
 export const date = createMemo<string>(() => `${WEEKDAYS[imod(weekday(), 7)]} ${day()} ${MONTHS[imod(month() - 1, 12)]}`);
+/** Hold screen line under the title */
+export const artistAlbum = createMemo<string>(() => (artist() !== "" && album() !== "" ? `${artist()} — ${album()}` : artist() !== "" ? artist() : album()));
 export const hasTrack = createMemo<boolean>(() => status() !== "stopped");
 export const paused = createMemo<boolean>(() => status() === "paused");
 

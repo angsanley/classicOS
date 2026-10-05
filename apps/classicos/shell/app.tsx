@@ -3,8 +3,9 @@
 // model; other screens are components fed by props.
 //
 // Now Playing: status bar, rounded cover with a shadow, title / artist /
-// album beside it, quality badge, times above a full-width scrubber. No on-screen transport:
-// Play/Prev/Next are hardware keys. Nothing playing: big clock.
+// album beside it, a full-width scrubber with times and the quality badge
+// below. No on-screen transport: Play/Prev/Next are hardware keys. Nothing
+// playing: big clock.
 
 import { Match, Show, Switch } from "solid-js";
 import { ActionHandler, AxisHandler, Image, Text, View } from "@pocketjs/framework/solid/components";
@@ -79,18 +80,18 @@ export default function Shell() {
               </View>
             </View>
 
+            {/* Apple Music layout: scrubber, then elapsed · quality badge · remaining. */}
+            <View class="absolute top-[194] left-[16] w-[288] h-[4] rounded-[2px] bg-[#ffffff40]">
+              <View class="h-[4] rounded-[2px] bg-[#ffffffd9]" style={{ width: progressPx() }} />
+            </View>
+            <View class="absolute top-[204] left-[16] right-[16] flex-row justify-between">
+              <Text class="text-xs text-[#ffffffa6]">{elapsed()}</Text>
+              <Text class="text-xs text-[#ffffffa6]">{remaining()}</Text>
+            </View>
             <Show when={badge() !== ""}>
-              <View class="absolute top-[172] left-[14] flex-row items-center gap-[3]">
+              <View class="absolute top-[203] left-0 right-0 flex-row items-center justify-center gap-[3]">
                 <Image src="icons/waveform.svg" class="w-[16] h-[16]" />
-                <Text class="text-xs text-[#ffffffb3]">{badge()}</Text>
-              </View>
-
-              <View class="absolute top-[192] left-[16] right-[16] flex-row justify-between">
-                <Text class="text-xs text-[#ffffffa6]">{elapsed()}</Text>
-                <Text class="text-xs text-[#ffffffa6]">{remaining()}</Text>
-              </View>
-              <View class="absolute top-[212] left-[16] w-[288] h-[4] rounded-[2px] bg-[#ffffff40]">
-                <View class="h-[4] rounded-[2px] bg-[#ffffffd9]" style={{ width: progressPx() }} />
+                <Text class="text-xs text-[#ffffffa6]">{badge()}</Text>
               </View>
             </Show>
           </Show>

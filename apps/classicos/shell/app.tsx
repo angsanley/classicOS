@@ -107,7 +107,7 @@ export default function NowPlaying() {
       <Show when={volumeShown()}>
         {/* Volume HUD (macOS style): an indicator, not a slider; the wheel
             drives it. Floats over the content. */}
-        <View class="absolute top-[184] left-[44] w-[232] h-[34] rounded-[17px] bg-[#1f1f21e0] shadow-lg flex-row items-center px-[14] gap-[10]">
+        <View class="absolute top-[184] left-[44] w-[232] h-[34] rounded-[17px] bg-[#1f1f21e0] flex-row items-center px-[14] gap-[10]">
           <Show when={volumeLevel() === 0}><Image src="icons/speaker_slash_fill.svg" class="w-[16] h-[16]" /></Show>
           <Show when={volumeLevel() === 1}><Image src="icons/speaker_1_fill.svg" class="w-[16] h-[16]" /></Show>
           <Show when={volumeLevel() === 2}><Image src="icons/speaker_2_fill.svg" class="w-[16] h-[16]" /></Show>

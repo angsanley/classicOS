@@ -11,6 +11,12 @@ int classicos_set_backlight(int seconds);
 #define CLICKER_SPEAKER    1 /* the piezo in the case */
 #define CLICKER_HEADPHONES 2 /* a beep mixed into the audio output */
 int classicos_clicker(void);
+/** Shuffle (0/1) and repeat (REPEAT_OFF/ALL/ONE), applied to the playing
+ * queue as Rockbox's settings do; saved like the display prefs */
+int classicos_shuffle(void);
+int classicos_repeat(void);
+int classicos_set_shuffle(int on);
+int classicos_set_repeat(int mode);
 int classicos_set_clicker(int mode);
 /** One click on the outputs the setting picks */
 void classicos_click(void);

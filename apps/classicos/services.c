@@ -35,6 +35,7 @@ struct pocketjs_playback {
     int32_t duration_ms;
     int32_t volume;
     int32_t shuffle;
+    int32_t repeat; /* 0 off, 1 all, 2 one */
     char path[260];
     char title[128];
     char artist[128];
@@ -98,6 +99,7 @@ void pocketjs_host_playback(struct pocketjs_playback *out)
     out->volume_min = sound_min(SOUND_VOLUME);
     out->volume_max = sound_max(SOUND_VOLUME);
     out->shuffle = global_settings.playlist_shuffle;
+    out->repeat = global_settings.repeat_mode;
     if (status & AUDIO_STATUS_PLAY)
         out->status = (status & AUDIO_STATUS_PAUSE) ? 2 : 1;
     if (!id3)
@@ -264,4 +266,23 @@ void pocketjs_host_library(int32_t op, int32_t arg, struct pocketjs_library *out
 void pocketjs_host_library_row(int32_t index, char *buf, int32_t size)
 {
     library_row(index, buf, size);
+}
+
+int32_t pocketjs_host_set_shuffle(int32_t on)
+{
+    return classicos_set_shuffle(on);
+}
+
+int32_t pocketjs_host_set_repeat(int32_t mode)
+{
+    return classicos_set_repeat(mode);
+}
+
+/* Control Center's Power Off: the same clean shutdown as Rockbox's power
+ * event (host.c) */
+int32_t pocketjs_host_power_off(int32_t unused)
+{
+    (void)unused;
+    sys_poweroff();
+    return 0;
 }

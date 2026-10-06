@@ -18,6 +18,7 @@ import {
   drawerIndex, drawerSelect, drawerWheel, musicIndex, musicSelect, musicWheel, openDrawer, poll, progressPx,
   remaining, screen, status, time, title, marqueeFits, marqueeOffset,
   volumeLevel, volumeLitPx, volumeShown, wheel,
+  ccOpen, ccIndex, ccSelect, ccWheel, openControlCenter, powerConfirm, powerIndex, repeat, repeatLabel, rootSelect, rootWheel, shuffle, shuffleLabel, volumeMode,
 } from "./app";
 import Drawer from "./Drawer.tsx";
 import Hold from "./Hold.tsx";
@@ -29,6 +30,8 @@ import Picker from "./Picker.tsx";
 import Brightness from "./Brightness.tsx";
 import Settings from "./Settings.tsx";
 import StatusBar from "./StatusBar.tsx";
+import VolumeHud from "./VolumeHud.tsx";
+import ControlCenter from "./ControlCenter.tsx";
 
 export default function Shell() {
   onMount(poll);
@@ -41,6 +44,11 @@ export default function Shell() {
       />
     </Show>
     <Show when={!hold()}>
+    {/* Hold Menu (BTN.TRIANGLE from the host) opens Control Center; the wheel
+        and Select drive the volume HUD it can open over any screen. */}
+    <ActionHandler button={BTN.TRIANGLE} latched onPress={() => openControlCenter()} />
+    <AxisHandler axis="primary" onDelta={(delta) => rootWheel(delta)} />
+    <ActionHandler button={BTN.CIRCLE} latched onPress={() => rootSelect()} />
     <Switch>
       <Match when={screen() === "drawer"}>
         <Drawer
@@ -169,22 +177,22 @@ export default function Shell() {
           </Show>
 
           <Show when={volumeShown()}>
-            {/* Volume HUD (macOS style): an indicator, not a slider; the wheel
-                drives it. Floats over the content; kept to a few nodes and opaque
-                since PocketJS rebuilds the draw list every frame. */}
-            <View class="absolute top-[184] left-[44] w-[232] h-[34] rounded-[17px] bg-[#1f1f21] flex-row items-center px-[14] gap-[10]">
-              <Show when={volumeLevel() === 0}><Image src="icons/speaker_slash_fill.svg" class="w-[16] h-[16]" /></Show>
-              <Show when={volumeLevel() === 1}><Image src="icons/speaker_1_fill.svg" class="w-[16] h-[16]" /></Show>
-              <Show when={volumeLevel() === 2}><Image src="icons/speaker_2_fill.svg" class="w-[16] h-[16]" /></Show>
-              <Show when={volumeLevel() === 3}><Image src="icons/speaker_3_fill.svg" class="w-[16] h-[16]" /></Show>
-              <View class="w-[176] h-[4] rounded-[2px] bg-[#ffffff40]">
-                <View class="h-[4] rounded-[2px] bg-white" style={{ width: volumeLitPx() }} />
-              </View>
-            </View>
+            <VolumeHud level={volumeLevel()} litPx={volumeLitPx()} />
           </Show>
         </View>
       </Match>
     </Switch>
+    <Show when={volumeMode() && screen() !== "now" && volumeShown()}>
+      <VolumeHud level={volumeLevel()} litPx={volumeLitPx()} />
+    </Show>
+    <Show when={ccOpen()}>
+      <ControlCenter
+        title={title()} artist={artist()} hasTrack={hasTrack()} selected={ccIndex()}
+        shuffle={shuffle()} repeat={repeat()} shuffleLabel={shuffleLabel()} repeatLabel={repeatLabel()}
+        confirm={powerConfirm()} confirmIndex={powerIndex()}
+        onWheel={(delta) => ccWheel(delta)} onSelect={() => ccSelect()}
+      />
+    </Show>
     </Show>
     </>
   );

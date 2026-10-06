@@ -12,13 +12,15 @@
 #include "file.h"
 #include "ata_idle_notify.h"
 #include "misc.h"
+#include "audio.h"
+#include "playlist.h"
 #include "settings_classicos.h"
 #ifdef HAVE_HARDWARE_CLICK
 #include "piezo.h"
 #endif
 
 #define PREFS_FILE ROCKBOX_DIR "/classicos/settings.bin"
-#define PREFS_VERSION 2
+#define PREFS_VERSION 3
 
 /* What the Settings app changes. Bump PREFS_VERSION when the layout changes;
  * an old or missing file falls back to these defaults. */
@@ -27,7 +29,9 @@ static struct prefs {
     uint8_t brightness;  /* MIN_BRIGHTNESS_SETTING..MAX_BRIGHTNESS_SETTING */
     int16_t backlight;   /* seconds, 0 = always on */
     uint8_t clicker;     /* CLICKER_* mask: click on wheel steps and presses */
-} prefs = { PREFS_VERSION, 28, 30, 1 };
+    uint8_t shuffle;     /* global_settings.playlist_shuffle */
+    uint8_t repeat;      /* global_settings.repeat_mode: REPEAT_OFF/ALL/ONE */
+} prefs = { PREFS_VERSION, 28, 30, 1, 0, REPEAT_OFF };
 static bool prefs_dirty;
 
 /* global_status (resume position, volume), Rockbox's resume info. playlist.c
@@ -126,6 +130,45 @@ int classicos_clicker(void)
     return prefs.clicker;
 }
 
+/* From apps/settings_list.c shuffle_playlist_callback() (replaygain and
+ * iAP left out): a playing queue is reshuffled or put back in order. */
+int classicos_set_shuffle(int on)
+{
+    on = on != 0;
+    global_settings.playlist_shuffle = on;
+    struct playlist_info *playlist = playlist_get_current();
+    if (playlist->started && (audio_status() & AUDIO_STATUS_PLAY) == AUDIO_STATUS_PLAY) {
+        if (on)
+            playlist_randomise(playlist, current_tick, true);
+        else
+            playlist_sort(playlist, true);
+    }
+    if (on != prefs.shuffle) {
+        prefs.shuffle = on;
+        prefs_changed();
+    }
+    return prefs.shuffle;
+}
+
+/* From apps/settings_list.c repeat_mode_callback(): playing tracks reload
+ * so the next track follows the new mode. Off, all or one. */
+int classicos_set_repeat(int mode)
+{
+    if (mode != REPEAT_ALL && mode != REPEAT_ONE)
+        mode = REPEAT_OFF;
+    global_settings.repeat_mode = mode;
+    if ((audio_status() & AUDIO_STATUS_PLAY) == AUDIO_STATUS_PLAY)
+        audio_flush_and_reload_tracks();
+    if (mode != prefs.repeat) {
+        prefs.repeat = mode;
+        prefs_changed();
+    }
+    return prefs.repeat;
+}
+
+int classicos_shuffle(void) { return prefs.shuffle; }
+int classicos_repeat(void) { return prefs.repeat; }
+
 int classicos_set_clicker(int mode)
 {
     mode &= CLICKER_SPEAKER | CLICKER_HEADPHONES;
@@ -181,6 +224,8 @@ int classicos_set_backlight(int seconds)
 static void display_settings_apply(void)
 {
     prefs_load();
+    global_settings.playlist_shuffle = prefs.shuffle;
+    global_settings.repeat_mode = prefs.repeat;
     classicos_set_brightness(prefs.brightness);
     classicos_set_backlight(prefs.backlight);
 #ifdef HAVE_LCD_SLEEP_SETTING

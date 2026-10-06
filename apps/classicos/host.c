@@ -30,7 +30,8 @@
 #define BUSY_PERIOD 3 /* ticks; the app clock runs at 33 Hz */
 #define IDLE_PERIOD (HZ / 10)
 #define IDLE_AFTER HZ
-#define POWEROFF_HOLD (HZ * 3 / 2)
+/* Holding Menu this long opens Control Center; a shorter press is Back */
+#define MENU_HOLD (HZ / 2)
 
 /* Button bits, shared with lib.rs */
 #define PJ_UP     1
@@ -40,6 +41,7 @@
 #define PJ_LEFT   16
 #define PJ_RIGHT  32
 #define PJ_PLAY   64
+#define PJ_MENU_HOLD 128 /* Menu held past MENU_HOLD */
 
 int pocketjs_init(void *heap, size_t heap_len, int w, int h);
 int pocketjs_frame(fb_data *fb, int w, int h, unsigned buttons, int wheel,
@@ -184,7 +186,8 @@ void classicos_host_run(void)
 {
     fb_data *fb = lcd_set_viewport(NULL)->buffer->fb_ptr;
     int rects[8][4], count, ret;
-    long b = BUTTON_NONE, now, left, frame_start, last_input, last_active, play_down = 0;
+    long b = BUTTON_NONE, now, left, frame_start, last_input, last_active, menu_down = 0;
+    int menu_tap = 0;
     bool boosted = false;
 #ifdef HAS_BUTTON_HOLD
     bool held_switch = button_hold();
@@ -216,6 +219,21 @@ void classicos_host_run(void)
         int wheel = 0;
 
         frame_start = current_tick;
+        /* Menu: a tap is Back, delivered on release so a hold can open
+         * Control Center instead (PJ_MENU_HOLD while still held). */
+        if (held & PJ_MENU) {
+            held &= ~PJ_MENU;
+            if (!menu_down)
+                menu_down = frame_start;
+            if (TIME_AFTER(frame_start, menu_down + MENU_HOLD))
+                held |= PJ_MENU_HOLD;
+        } else if (menu_down) {
+            if (!TIME_AFTER(frame_start, menu_down + MENU_HOLD))
+                menu_tap = 2; /* down for one frame, up the next */
+            menu_down = 0;
+        }
+        if (menu_tap > 0 && --menu_tap > 0)
+            held |= PJ_MENU;
         /* Wheel steps are summed per frame and delivered as a relative axis. */
         if (b == BUTTON_NONE)
             b = button_get(false);
@@ -230,12 +248,7 @@ void classicos_host_run(void)
                 }
             }
             else if (b == BUTTON_PLAY)
-                play_down = frame_start;
-            else if (b == (BUTTON_PLAY | BUTTON_REL)) {
-                if (play_down)  /* short press; a long one powered off */
-                    media_play_pause();
-                play_down = 0;
-            }
+                media_play_pause();
             else if (b == (BUTTON_RIGHT | BUTTON_REL))
                 media_skip(1);
             else if (b == (BUTTON_LEFT | BUTTON_REL))
@@ -261,13 +274,6 @@ void classicos_host_run(void)
             backlight_on();
         }
 #endif
-
-        /* hold Play = power off until Control Center exists */
-        if ((held & PJ_PLAY) && play_down &&
-            TIME_AFTER(frame_start, play_down + POWEROFF_HOLD)) {
-            play_down = 0;
-            sys_poweroff();
-        }
 
         /* Boost only for input: animations alone (e.g. a title marquee)
          * repaint small areas and run fine at the normal clock. Repaints

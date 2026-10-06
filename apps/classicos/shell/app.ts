@@ -98,6 +98,20 @@ export async function poll(): Promise<void> {
       // A finished scan changes the lists; reload the open one on return.
       if (u.kind === "ok") rowsLoaded = -1;
     }
+    if (shufflePending) {
+      shufflePending = false;
+      const sh = await playback.setShuffle(shuffle() ? 1 : 0);
+      if (sh.kind === "ok" && !shufflePending) setShuffle(sh.value !== 0);
+    }
+    if (repeatPending) {
+      repeatPending = false;
+      const rp = await playback.setRepeat(repeat());
+      if (rp.kind === "ok" && !repeatPending) setRepeat(rp.value);
+    }
+    if (powerOffWanted) {
+      powerOffWanted = false;
+      await system.powerOff();
+    }
     if (aboutWanted) {
       aboutWanted = false;
       const a = await system.about();
@@ -134,6 +148,8 @@ export async function poll(): Promise<void> {
         setVolumeMin(p.volumeMin);
         setVolumeMax(p.volumeMax);
         if (!volumePending) setVolume(p.volume);
+        if (!shufflePending) setShuffle(p.shuffle);
+        if (!repeatPending) setRepeat(p.repeat);
         setElapsedMs(p.elapsedMs);
         setDurationMs(p.durationMs);
         setArt(p.art);
@@ -226,7 +242,19 @@ const VOLUME_SEND_TICKS: i32 = 3;
 let volumeSendIn: i32 = 0;
 
 export function wheel(delta: i32): void {
+  if (blocked()) return;
   if (!hasTrack()) return;
+  volumeStep(delta);
+}
+
+async function hideVolume(): Promise<void> {
+  await after(2000);
+  setVolumeShown(false);
+  setVolumeMode(false);
+}
+
+/** One wheel click = one HUD segment, shown at once; sent by poll() */
+function volumeStep(delta: i32): void {
   const next = dbSegment(volume()) + idiv(delta, WHEEL_STEP);
   setVolume(segmentDb(next < 0 ? 0 : next > SEGMENTS ? SEGMENTS : next));
   volumePending = true;
@@ -235,10 +263,81 @@ export function wheel(delta: i32): void {
   hideVolume();
 }
 
-async function hideVolume(): Promise<void> {
-  await after(2000);
-  setVolumeShown(false);
+// Control Center: hold Menu (host.c turns a held Menu into BTN.TRIANGLE; a
+// tap stays Back). A sheet over the current screen: Volume, Shuffle,
+// Repeat, Power Off. While it or the volume HUD it opens is up, the screen
+// underneath ignores input (blocked()); Menu goes through back().
+export const [ccOpen, setCcOpen] = createSignal<boolean>(false);
+/** Focused tile: 0 Volume, 1 Shuffle, 2 Repeat, 3 Power Off */
+export const [ccIndex, setCcIndex] = createSignal<i32>(0);
+export const [shuffle, setShuffle] = createSignal<boolean>(false);
+/** 0 off, 1 all, 2 one */
+export const [repeat, setRepeat] = createSignal<i32>(0);
+/** Power Off asks first: Cancel (0) or Power Off (1) */
+export const [powerConfirm, setPowerConfirm] = createSignal<boolean>(false);
+export const [powerIndex, setPowerIndex] = createSignal<i32>(0);
+/** Control Center's Volume: the HUD over any screen, the wheel on volume */
+export const [volumeMode, setVolumeMode] = createSignal<boolean>(false);
+let shufflePending: boolean = false;
+let repeatPending: boolean = false;
+let powerOffWanted: boolean = false;
+const CC_TILES: i32 = 4;
+
+function blocked(): boolean {
+  return ccOpen() || volumeMode();
 }
+
+export function openControlCenter(): void {
+  if (hold() || ccOpen()) return;
+  setVolumeMode(false);
+  setVolumeShown(false);
+  setCcIndex(0);
+  setPowerConfirm(false);
+  setCcOpen(true);
+}
+
+export function ccWheel(delta: i32): void {
+  if (powerConfirm()) setPowerIndex(step(powerIndex(), delta, 2));
+  else setCcIndex(step(ccIndex(), delta, CC_TILES));
+}
+
+export function ccSelect(): void {
+  if (powerConfirm()) {
+    if (powerIndex() === 1) powerOffWanted = true;
+    else setPowerConfirm(false);
+    return;
+  }
+  const i = ccIndex();
+  if (i === 0) {
+    setCcOpen(false);
+    setVolumeMode(true);
+    volumeStep(0);
+  } else if (i === 1) {
+    setShuffle(!shuffle());
+    shufflePending = true;
+  } else if (i === 2) {
+    setRepeat(imod(repeat() + 1, 3));
+    repeatPending = true;
+  } else {
+    setPowerIndex(0);
+    setPowerConfirm(true);
+  }
+}
+
+/** The wheel and Select while the volume HUD from Control Center is up */
+export function rootWheel(delta: i32): void {
+  if (volumeMode()) volumeStep(delta);
+}
+
+export function rootSelect(): void {
+  if (volumeMode()) {
+    setVolumeMode(false);
+    setVolumeShown(false);
+  }
+}
+
+export const shuffleLabel = createMemo<string>(() => (shuffle() ? "Shuffle On" : "Shuffle Off"));
+export const repeatLabel = createMemo<string>(() => (repeat() === 1 ? "Repeat All" : repeat() === 2 ? "Repeat One" : "Repeat Off"));
 
 function pad2(n: i32): string {
   return `${n < 10 ? "0" : ""}${n}`;
@@ -441,15 +540,21 @@ function scrollToTop(top: i32, scroll: i32, height: i32): i32 {
 
 /** Menu on Now Playing */
 export function openDrawer(): void {
+  if (blocked() || powerConfirm()) {
+    back();
+    return;
+  }
   go("drawer");
 }
 
 export function drawerWheel(delta: i32): void {
+  if (blocked()) return;
   setDrawerIndex(step(drawerIndex(), delta, DRAWER_ITEMS));
   go("drawer");
 }
 
 export function drawerSelect(): void {
+  if (blocked()) return;
   if (drawerIndex() === 0) go(hasTrack() ? "now" : "notplaying");
   else open(drawerIndex() === 1 ? "music" : "settings");
 }
@@ -462,6 +567,7 @@ function leaveStoppedNowPlaying(): void {
 }
 
 export function musicWheel(delta: i32): void {
+  if (blocked()) return;
   setMusicIndex(step(musicIndex(), delta, MUSIC_ITEMS));
   go("music");
 }
@@ -469,6 +575,18 @@ export function musicWheel(delta: i32): void {
 /** Menu: Settings' pages go back to Settings, the apps to the drawer, and
  * the drawer to Now Playing while something plays. */
 export function back(): void {
+  if (powerConfirm()) {
+    setPowerConfirm(false);
+    return;
+  }
+  if (ccOpen()) {
+    setCcOpen(false);
+    return;
+  }
+  if (volumeMode()) {
+    rootSelect();
+    return;
+  }
   const s = screen();
   if (s === "brightness" || s === "backlight" || s === "clicker" || s === "about") go("settings");
   else if (s === "library") {
@@ -485,6 +603,7 @@ export function back(): void {
 }
 
 export function musicSelect(): void {
+  if (blocked()) return;
   if (musicIndex() === 0) {
     libraryOp = LIBRARY_PLAYLISTS;
     setLibraryTitle("Playlists");
@@ -506,6 +625,7 @@ export function musicSelect(): void {
 }
 
 export function libraryWheel(delta: i32): void {
+  if (blocked()) return;
   if (libraryCount() === 0) return;
   setLibraryIndex(step(libraryIndex(), delta, libraryCount()));
   setLibraryScroll(scrollToTop(libraryIndex() * libraryPitch(), libraryScroll(), libraryPitch() - 1));
@@ -513,6 +633,7 @@ export function libraryWheel(delta: i32): void {
 }
 
 export function librarySelect(): void {
+  if (blocked()) return;
   if (libraryCount() > 0) libraryOp = LIBRARY_ENTER;
   go("library");
 }
@@ -534,6 +655,7 @@ export const [aboutScroll, setAboutScroll] = createSignal<i32>(0);
 const ABOUT_MAX_SCROLL: i32 = 77;
 
 export function aboutWheel(delta: i32): void {
+  if (blocked()) return;
   const next = aboutScroll() + idiv(delta, WHEEL_STEP) * 44;
   setAboutScroll(next < 0 ? 0 : next > ABOUT_MAX_SCROLL ? ABOUT_MAX_SCROLL : next);
   go("about");
@@ -566,12 +688,14 @@ async function updateNotice(): Promise<void> {
 }
 
 export function settingsWheel(delta: i32): void {
+  if (blocked()) return;
   setSettingsIndex(step(settingsIndex(), delta, SETTINGS_ITEMS));
   setSettingsScroll(scrollToTop(SETTINGS_TOPS[settingsIndex()], settingsScroll(), ROW_HEIGHT));
   go("settings");
 }
 
 export function settingsSelect(): void {
+  if (blocked()) return;
   if (settingsIndex() === 0) go("brightness");
   else if (settingsIndex() === 1) {
     setBacklightIndex(backlightOption());
@@ -593,6 +717,7 @@ export function settingsSelect(): void {
 
 /** One wheel click = one backlight level */
 export function brightnessWheel(delta: i32): void {
+  if (blocked()) return;
   const next = brightness() + idiv(delta, WHEEL_STEP);
   setBrightness(next < brightnessMin() ? brightnessMin() : next > brightnessMax() ? brightnessMax() : next);
   brightnessPending = true;
@@ -600,22 +725,26 @@ export function brightnessWheel(delta: i32): void {
 }
 
 export function backlightWheel(delta: i32): void {
+  if (blocked()) return;
   setBacklightIndex(step(backlightIndex(), delta, len(BACKLIGHT_SECONDS)));
   go("backlight");
 }
 
 export function backlightSelect(): void {
+  if (blocked()) return;
   setBacklight(BACKLIGHT_SECONDS[backlightIndex()]);
   backlightPending = true;
   go("settings");
 }
 
 export function clickerWheel(delta: i32): void {
+  if (blocked()) return;
   setClickerIndex(step(clickerIndex(), delta, len(CLICKER_ROWS)));
   go("clicker");
 }
 
 export function clickerSelect(): void {
+  if (blocked()) return;
   setClicker(clickerIndex());
   clickerPending = true;
   go("settings");

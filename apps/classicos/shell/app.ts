@@ -99,6 +99,8 @@ export async function poll(): Promise<void> {
         setFreeMb(a.freeMb);
       }
     }
+    // The database is still building: retry the list about once a second.
+    if (screen() === "library" && !libraryReady() && libraryOp === 0 && imod(step, 30) === 0) libraryOp = LIBRARY_OPEN;
     if (libraryOp !== 0) await runLibraryOp();
     if (screen() === "library" && idiv(libraryScroll(), ROW_PITCH) !== rowsLoaded) {
       const r = await library.rows(idiv(libraryScroll(), ROW_PITCH));

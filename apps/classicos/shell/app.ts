@@ -329,6 +329,15 @@ export const [libraryCount, setLibraryCount] = createSignal<i32>(0);
 export const [libraryReady, setLibraryReady] = createSignal<boolean>(true);
 /** A list is on its way; nothing to say about an empty one yet */
 export const [libraryLoading, setLibraryLoading] = createSignal<boolean>(false);
+/** Activity spinner frame, 0-7; steps every 125 ms while shown */
+export const [spinnerFrame, setSpinnerFrame] = createSignal<i32>(0);
+
+async function spin(): Promise<void> {
+  for (let i: i32 = 0; i < 2147483647; i++) {
+    await after(125);
+    setSpinnerFrame(imod(spinnerFrame() + 1, 8));
+  }
+}
 /** libraryRows() are rows libraryFirst() onwards */
 export const [libraryFirst, setLibraryFirst] = createSignal<i32>(0);
 export const [libraryRows, setLibraryRows] = createSignal<string[]>([]);
@@ -339,6 +348,8 @@ const LIBRARY_BACK: i32 = 3;
 let libraryOp: i32 = 0;
 /** LIBRARY_OPEN: the tagnavi menu row to open (Artists, Albums, Songs) */
 let libraryRoot: i32 = 0;
+/** Their titles, shown while the list loads */
+const LIBRARY_ROOTS: string[] = ["Artists", "Albums", "Songs"];
 /** First row of the loaded page, -1 = reload */
 let rowsLoaded: i32 = -1;
 
@@ -370,6 +381,7 @@ function applyLevel(l: LevelResult): void {
     return;
   }
   setLibraryReady(true);
+  cancel(spin);
   if (l.playing) {
     go("now");
     return;
@@ -434,7 +446,10 @@ export function back(): void {
     if (libraryDepth > 1) {
       libraryOp = LIBRARY_BACK;
       go("library");
-    } else go("music");
+    } else {
+      cancel(spin);
+      go("music");
+    }
   } else if (s !== "drawer") go("drawer");
   else if (hasTrack()) go("now");
 }
@@ -447,11 +462,14 @@ export function musicSelect(): void {
   }
   libraryRoot = musicIndex() - 1;
   libraryOp = LIBRARY_OPEN;
+  setLibraryTitle(LIBRARY_ROOTS[libraryRoot]);
   setLibraryIndex(0);
   setLibraryScroll(0);
   setLibraryCount(0);
   setLibraryLoading(true);
   rowsLoaded = -1;
+  cancel(spin);
+  spin();
   go("library");
 }
 

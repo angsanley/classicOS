@@ -8,12 +8,15 @@ import { ActionHandler, AxisHandler, Text, View } from "@pocketjs/framework/soli
 import { BTN } from "@pocketjs/framework/input";
 import type { i32 } from "@pocketjs/framework/solid/std";
 import LibraryRow from "./LibraryRow.tsx";
+import Spinner from "./Spinner.tsx";
 import StatusBar from "./StatusBar.tsx";
 
 export default function Library(props: {
   title: string;
   ready: boolean;
   loading: boolean;
+  /** Spinner frame, 0-7 */
+  spinner: i32;
   count: i32;
   first: i32;
   rows: string[];
@@ -33,9 +36,14 @@ export default function Library(props: {
       <ActionHandler button={BTN.CIRCLE} latched onPress={() => props.onSelect()} />
       <ActionHandler button={BTN.CROSS} latched onPress={() => props.onBack()} />
       <StatusBar title={props.title} lock={false} dark status={props.status} time={props.time} clock batteryPx={props.batteryPx} plugged={props.plugged} />
-      <Show when={props.count === 0 && !props.loading}>
+      <Show when={props.loading || !props.ready}>
         <View class="absolute top-[30] left-0 right-0 bottom-0 items-center justify-center">
-          <Text class="text-base text-[#6c6c70]">{props.ready ? "No Music" : "Updating Library…"}</Text>
+          <Spinner frame={props.spinner} />
+        </View>
+      </Show>
+      <Show when={props.count === 0 && props.ready && !props.loading}>
+        <View class="absolute top-[30] left-0 right-0 bottom-0 items-center justify-center">
+          <Text class="text-base text-[#6c6c70]">No Music</Text>
         </View>
       </Show>
       <View class="absolute top-[30] left-[12] w-[296] h-[210] overflow-hidden">

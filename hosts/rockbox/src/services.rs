@@ -80,8 +80,8 @@ extern "C" {
     fn pocketjs_host_playback(out: *mut Playback);
     fn pocketjs_host_system(out: *mut System);
     fn pocketjs_host_about(out: *mut About);
-    /// Runs a library op (0 open, 1 enter `arg`, 2 back, 3 update) and
-    /// reports the level.
+    /// Runs a library op (0 open, 1 enter `arg`, 2 back, 3 update,
+    /// 4 open playlists) and reports the level.
     fn pocketjs_host_library(op: i32, arg: i32, out: *mut Library);
     /// Writes row `index`'s name (NUL-terminated) into `buf`.
     fn pocketjs_host_library_row(index: i32, buf: *mut u8, size: i32);
@@ -443,6 +443,7 @@ pub fn serve(ui: &mut Ui) {
             },
             (LIBRARY, "back") => library(2, 0),
             (LIBRARY, "update") => library(3, 0),
+            (LIBRARY, "playlists") => library(4, 0),
             (LIBRARY, "rows") => match (r.args.first(), r.args.get(1)) {
                 (Some(Value::I32(first)), Some(Value::I32(width))) => library_rows(ui, *first, *width),
                 _ => object(vec![("kind", string("malformed"))]),

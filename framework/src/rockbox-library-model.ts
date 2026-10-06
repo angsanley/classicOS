@@ -47,6 +47,8 @@ export const library = {
   enter: (index: i32) => level("enter", [index]),
   /** Up one level (at the top menu it stays there) */
   back: () => level("back", []),
+  /** The Playlists list: Rockbox's playlist folder, then a playlist's songs */
+  playlists: () => level("playlists", []),
   /** Rescans the music folder in the background (Rockbox's Update Now) */
   update: () => level("update", []),
   rows,

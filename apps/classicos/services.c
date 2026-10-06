@@ -21,6 +21,7 @@
 #include "mv.h"
 #include "rbversion.h"
 #include "settings_classicos.h"
+#include "library.h"
 #ifdef HAVE_ALBUMART
 #include "bmp.h"
 #include "albumart.h"
@@ -222,4 +223,34 @@ int pocketjs_host_album_art(const fb_data **pixels, int *w, int *h)
     (void)pixels; (void)w; (void)h;
     return -1;
 #endif
+}
+
+/* Mirrors Library in hosts/rockbox/src/services.rs */
+struct pocketjs_library {
+    int32_t count; /* -1 while the database is unavailable */
+    int32_t depth;
+    int32_t selected;
+    int32_t playing;
+    char title[128];
+};
+
+void pocketjs_host_library(int32_t op, int32_t arg, struct pocketjs_library *out)
+{
+    int rc = 0, result = LIBRARY_STAYED;
+    if (op == 0)
+        rc = library_open();
+    else if (op == 1)
+        result = library_enter(arg);
+    else
+        library_back();
+    out->count = rc < 0 ? -1 : library_count();
+    out->depth = library_depth();
+    out->selected = library_selected();
+    out->playing = result == LIBRARY_PLAYING;
+    library_title(out->title, sizeof(out->title));
+}
+
+void pocketjs_host_library_row(int32_t index, char *buf, int32_t size)
+{
+    library_row(index, buf, size);
 }

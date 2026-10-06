@@ -16,6 +16,7 @@ host.c
 ../codecs.c
 ../playlist.c
 ../tagcache.c
+../tagtree.c
 settings.c
 
 #ifdef HAVE_ALBUMART

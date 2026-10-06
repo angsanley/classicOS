@@ -19,6 +19,7 @@ mkdir -p "$V/.rockbox/codecs"
 cp "$B"/lib/rbcodec/codecs/*.codec "$V/.rockbox/codecs/"
 mkdir -p "$V/.rockbox/classicos"
 cp -R "$B/classicos/data/." "$V/.rockbox/classicos/"
+cp "$(dirname "$0")/tagnavi_user.config" "$V/.rockbox/"
 sync
 cmp "$B/rockbox.ipod" "$V/.rockbox/rockbox.ipod"
 echo "deployed and verified"

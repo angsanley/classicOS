@@ -52,7 +52,7 @@ $(PJS_NODE_LINKS):
 # Baked assets (fonts from text, images and SVG icons) come from the app dir too.
 PJS_APP_SRC := $(shell find $(PJS_APP_DIR) -path '*/node_modules' -prune -o -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.svg' -o -name '*.png' \) -print)
 
-$(PJS_GEN)/include.rs: $(PJS_APP_SRC) $(PJS_CRATE)/gen.ts | $(PJS_NODE_LINKS)
+$(PJS_GEN)/include.rs: $(PJS_APP_SRC) $(PJS_CRATE)/gen.ts $(APPSDIR)/classicos/tagnavi_user.config | $(PJS_NODE_LINKS)
 	$(call PRINTS,MICROTS $(PJS_APP_NAME))rm -rf $(PJS_GEN) && cd $(POCKETJS_DIR) && \
 		bun ./hosts/rockbox/gen.ts $(PJS_APP_DIR)/app.tsx $(PJS_GEN) >/dev/null
 	$(SILENT)rm -rf $(PJS_DATA) && mkdir -p $(PJS_DATA) && \
@@ -60,6 +60,7 @@ $(PJS_GEN)/include.rs: $(PJS_APP_SRC) $(PJS_CRATE)/gen.ts | $(PJS_NODE_LINKS)
 		{ cp $(PJS_GEN)/*.rgba $(PJS_DATA)/ 2>/dev/null || true; }
 ifdef PJS_SIMDATA
 	$(SILENT)rm -rf $(PJS_SIMDATA) && mkdir -p $(dir $(PJS_SIMDATA)) && cp -R $(PJS_DATA) $(PJS_SIMDATA)
+	$(SILENT)cp $(APPSDIR)/classicos/tagnavi_user.config $(BUILDDIR)/simdisk/.rockbox/
 endif
 
 $(PJS_LIB): $(PJS_GEN)/include.rs $(wildcard $(PJS_CRATE)/src/*.rs) $(PJS_CRATE)/Cargo.toml

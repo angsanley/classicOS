@@ -11,6 +11,11 @@
 #include "settings.h"
 #include "misc.h"
 #include "yesno.h"
+#include "keyboard.h"
+#include "talk.h"
+#include "playlist_catalog.h"
+#include "language.h"
+#include "lang.h"
 
 int get_radio_status(void) { return 0; }
 
@@ -134,8 +139,6 @@ int ft_load(struct tree_context *c, const char *dir) { (void)c; (void)dir; retur
 void reload_directory(void) {}
 struct tree_context *tree_get_context(void) { return NULL; }
 struct entry *tree_get_entries(struct tree_context *t) { (void)t; return NULL; }
-void tree_lock_cache(struct tree_context *t) { (void)t; }
-void tree_unlock_cache(struct tree_context *t) { (void)t; }
 bool show_search_progress(bool init, int count, int current, int total)
 {
     (void)init; (void)count; (void)current; (void)total;
@@ -257,4 +260,56 @@ int fast_readline(int fd, char *buf, int buf_size, void *parameters,
         memmove(buf, next, pos);
     }
     return 0;
+}
+
+/* tagtree (the database browser) reaches these from UI paths we don't use:
+ * search prompts, voice, playlist catalog and the erase-playlist dialog. */
+int kbd_input(char *buffer, int buflen, ucschar_t *kbd)
+{
+    (void)buffer; (void)buflen; (void)kbd;
+    return -1; /* cancelled */
+}
+
+int talk_value(long n, int unit, bool enqueue) { (void)n; (void)unit; (void)enqueue; return 0; }
+
+int catalog_insert_into(const char *playlist, bool new_playlist, const char *sel, int sel_attr)
+{
+    (void)playlist; (void)new_playlist; (void)sel; (void)sel_attr;
+    return -1;
+}
+
+bool warn_on_pl_erase(void) { return true; }
+
+/* Only for random-filling a playlist past max_files_in_playlist; size 0
+ * makes tagtree insert in order instead. */
+void *plugin_get_buffer(size_t *buffer_size)
+{
+    *buffer_size = 0;
+    return NULL;
+}
+
+/* From apps/language.c; tagnavi.config names menu titles by English string. */
+int lang_english_to_id(const char *english)
+{
+    int i;
+    unsigned char *ptr = (unsigned char *)core_language_builtin;
+    size_t ptrlen, len = strlen(english);
+    for (i = 0; i < LANG_LAST_INDEX_IN_ARRAY; i++) {
+        ptrlen = strlen((char *)ptr);
+        if (ptrlen == len && memcmp(ptr, english, ptrlen) == 0)
+            return i;
+        ptr += ptrlen + 1;
+    }
+    return -1;
+}
+
+/* From apps/language.c: points language_strings[] at the built-in English
+ * strings (str(), ID2P names in tagtree menus). Called at boot like
+ * apps/main.c. */
+void lang_init(const unsigned char *builtin, unsigned char **dest, int count)
+{
+    while (count--) {
+        *dest++ = (unsigned char *)builtin;
+        builtin += strlen((char *)builtin) + 1;
+    }
 }

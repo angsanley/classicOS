@@ -12,7 +12,7 @@ import { ActionHandler, AxisHandler, Image, Text, View } from "@pocketjs/framewo
 import { BTN } from "@pocketjs/framework/input";
 import { onMount } from "@pocketjs/framework/solid/lifecycle";
 import {
-  available, back, backlightIndex, backlightLabel, backlightOption, backlightSelect, backlightWheel, clickerIndex, clickerLabel, clickerSelect, clickerWheel,
+  available, back, backlightIndex, backlightLabel, backlightOption, backlightSelect, backlightWheel, libraryCount, libraryFirst, libraryIndex, libraryLoading, libraryReady, libraryRows, libraryScroll, librarySelect, libraryTitle, libraryWheel, clickerIndex, clickerLabel, clickerSelect, clickerWheel,
   batteryText, brightnessPx, clicker, plugged, brightnessWheel, capacity, settingsIndex, settingsSelect, settingsWheel, version,
   album, art, artistAlbum, date, hold, artBottom, artTop, artist, badge, batteryPx, date, elapsed, hasTrack,
   drawerIndex, drawerSelect, drawerWheel, musicIndex, musicScroll, musicSelect, musicWheel, openDrawer, poll, progressPx,
@@ -22,6 +22,7 @@ import {
 import Drawer from "./Drawer.tsx";
 import Hold from "./Hold.tsx";
 import Music from "./Music.tsx";
+import Library from "./Library.tsx";
 import About from "./About.tsx";
 import Picker from "./Picker.tsx";
 import Brightness from "./Brightness.tsx";
@@ -52,6 +53,14 @@ export default function Shell() {
           selected={musicIndex()} scroll={musicScroll()}
           status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
           onWheel={(delta) => musicWheel(delta)} onSelect={() => musicSelect()} onBack={() => back()}
+        />
+      </Match>
+      <Match when={screen() === "library"}>
+        <Library
+          title={libraryTitle()} ready={libraryReady()} loading={libraryLoading()} count={libraryCount()}
+          first={libraryFirst()} rows={libraryRows()} selected={libraryIndex()} scroll={libraryScroll()}
+          status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
+          onWheel={(delta) => libraryWheel(delta)} onSelect={() => librarySelect()} onBack={() => back()}
         />
       </Match>
       <Match when={screen() === "settings"}>

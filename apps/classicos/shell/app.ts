@@ -7,6 +7,7 @@ import { createMemo } from "@pocketjs/framework/solid/reactive";
 import { after, cancel, idiv, imod, len, type Color, type i32 } from "@pocketjs/framework/solid/std";
 import { playback } from "@pocketjs/framework/rockbox/playback/model";
 import { system } from "@pocketjs/framework/rockbox/system/model";
+import { library, type LevelResult } from "@pocketjs/framework/rockbox/library/model";
 
 export const [status, setStatus] = createSignal<string>("stopped");
 export const [title, setTitle] = createSignal<string>("");
@@ -96,6 +97,15 @@ export async function poll(): Promise<void> {
         setVersion(a.version);
         setDiskMb(a.diskMb);
         setFreeMb(a.freeMb);
+      }
+    }
+    if (libraryOp !== 0) await runLibraryOp();
+    if (screen() === "library" && idiv(libraryScroll(), ROW_PITCH) !== rowsLoaded) {
+      const r = await library.rows(idiv(libraryScroll(), ROW_PITCH));
+      if (r.kind === "ok") {
+        setLibraryRows(r.rows);
+        setLibraryFirst(r.first);
+        rowsLoaded = r.first;
       }
     }
     if (imod(step, 8) === 0) {
@@ -265,15 +275,15 @@ export const progressPx = createMemo<i32>(() => (durationMs() > 0 ? idiv(elapsed
 // the app drawer otherwise; Menu goes back one level. Back targets are fixed
 // until the library browser needs a stack.
 
-/** "now", "drawer", "music", "settings", "brightness", "backlight", "clicker" or "about" */
+/** "now", "drawer", "music", "library", "settings", "brightness", "backlight", "clicker" or "about" */
 export const [screen, setScreen] = createSignal<string>("drawer");
 
 /** Drawer apps, row-major in its 2x4 grid: Now Playing, Music, Settings */
 const DRAWER_ITEMS: i32 = 3;
-/** Music rows: Playlists, Artists, Albums, Songs */
-const MUSIC_ITEMS: i32 = 4;
 /** Selections are kept across visits so a screen reopens where it was. */
 export const [drawerIndex, setDrawerIndex] = createSignal<i32>(0);
+/** Music rows: Playlists, Artists, Albums, Songs */
+const MUSIC_ITEMS: i32 = 4;
 export const [musicIndex, setMusicIndex] = createSignal<i32>(0);
 /** Music list scroll in px; moves only to keep the selection in view */
 export const [musicScroll, setMusicScroll] = createSignal<i32>(0);
@@ -303,6 +313,71 @@ function open(to: string): void {
     setMusicScroll(0);
   } else if (to === "settings") setSettingsIndex(0);
   go(to);
+}
+
+// Library lists behind Music's Artists, Albums and Songs: Rockbox's database
+// browser (tagtree) runs in the host, menus from tagnavi_user.config.
+// Actions queue a browse step; poll() runs it and pages in the rows around
+// the scroll position.
+export const [libraryIndex, setLibraryIndex] = createSignal<i32>(0);
+export const [libraryScroll, setLibraryScroll] = createSignal<i32>(0);
+export const [libraryTitle, setLibraryTitle] = createSignal<string>("Music");
+export const [libraryCount, setLibraryCount] = createSignal<i32>(0);
+/** False while the database is building (or missing) */
+export const [libraryReady, setLibraryReady] = createSignal<boolean>(true);
+/** A list is on its way; nothing to say about an empty one yet */
+export const [libraryLoading, setLibraryLoading] = createSignal<boolean>(false);
+/** libraryRows() are rows libraryFirst() onwards */
+export const [libraryFirst, setLibraryFirst] = createSignal<i32>(0);
+export const [libraryRows, setLibraryRows] = createSignal<string[]>([]);
+let libraryDepth: i32 = 0;
+const LIBRARY_OPEN: i32 = 1;
+const LIBRARY_ENTER: i32 = 2;
+const LIBRARY_BACK: i32 = 3;
+let libraryOp: i32 = 0;
+/** LIBRARY_OPEN: the tagnavi menu row to open (Artists, Albums, Songs) */
+let libraryRoot: i32 = 0;
+/** First row of the loaded page, -1 = reload */
+let rowsLoaded: i32 = -1;
+
+async function runLibraryOp(): Promise<void> {
+  const op = libraryOp;
+  libraryOp = 0;
+  if (op === LIBRARY_OPEN) {
+    const top = await library.open();
+    if (top.kind !== "ok") {
+      applyLevel(top);
+      return;
+    }
+    const l = await library.enter(libraryRoot);
+    applyLevel(l);
+  } else if (op === LIBRARY_ENTER) {
+    const l = await library.enter(libraryIndex());
+    applyLevel(l);
+  } else {
+    const l = await library.back();
+    applyLevel(l);
+  }
+}
+
+function applyLevel(l: LevelResult): void {
+  setLibraryLoading(false);
+  if (l.kind !== "ok") {
+    setLibraryReady(false);
+    setLibraryCount(0);
+    return;
+  }
+  setLibraryReady(true);
+  if (l.playing) {
+    go("now");
+    return;
+  }
+  setLibraryTitle(l.title);
+  setLibraryCount(l.count);
+  libraryDepth = l.depth;
+  setLibraryIndex(l.selected);
+  setLibraryScroll(scrollTo(l.selected, 0));
+  rowsLoaded = -1;
 }
 
 function step(index: i32, delta: i32, count: i32): i32 {
@@ -352,13 +427,42 @@ export function musicWheel(delta: i32): void {
 export function back(): void {
   const s = screen();
   if (s === "brightness" || s === "backlight" || s === "clicker" || s === "about") go("settings");
-  else if (s !== "drawer") go("drawer");
+  else if (s === "library") {
+    // The first level (Artists, Albums, Songs) goes back to Music.
+    if (libraryDepth > 1) {
+      libraryOp = LIBRARY_BACK;
+      go("library");
+    } else go("music");
+  } else if (s !== "drawer") go("drawer");
   else if (hasTrack()) go("now");
 }
 
 export function musicSelect(): void {
-  // the library rows need a library source (tagcache) first
-  go("music");
+  // Playlists needs a playlist source (.m3u files) first
+  if (musicIndex() === 0) {
+    go("music");
+    return;
+  }
+  libraryRoot = musicIndex() - 1;
+  libraryOp = LIBRARY_OPEN;
+  setLibraryIndex(0);
+  setLibraryScroll(0);
+  setLibraryCount(0);
+  setLibraryLoading(true);
+  rowsLoaded = -1;
+  go("library");
+}
+
+export function libraryWheel(delta: i32): void {
+  if (libraryCount() === 0) return;
+  setLibraryIndex(step(libraryIndex(), delta, libraryCount()));
+  setLibraryScroll(scrollTo(libraryIndex(), libraryScroll()));
+  go("library");
+}
+
+export function librarySelect(): void {
+  if (libraryCount() > 0) libraryOp = LIBRARY_ENTER;
+  go("library");
 }
 
 /** The text the marquee drives: Now Playing's title, measured in font slot

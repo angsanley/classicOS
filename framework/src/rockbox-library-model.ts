@@ -41,5 +41,7 @@ export const library = {
   enter: (index: i32) => level("enter", [index]),
   /** Up one level (at the top menu it stays there) */
   back: () => level("back", []),
+  /** Rescans the music folder in the background (Rockbox's Update Now) */
+  update: () => level("update", []),
   rows,
 };

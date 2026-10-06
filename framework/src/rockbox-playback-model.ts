@@ -22,6 +22,8 @@ export type PlaybackResult =
       volumeMin: i32;
       volumeMax: i32;
       shuffle: boolean;
+      /** 0 off, 1 all, 2 one (classicOS) */
+      repeat: i32;
       /** Rockbox format label ("FLAC", "MP3", "AAC"...), sample rate in Hz and
        * bitrate in kbps (classicOS) */
       codec: string;
@@ -48,7 +50,23 @@ function setVolume(volume: i32): PromiseLike<VolumeResult> {
   return { kind: "service", service: MODULE, call: "setVolume", args: [volume] } as unknown as PromiseLike<VolumeResult>;
 }
 
+export type SettingResult =
+  | { kind: "ok"; value: i32 }
+  | { kind: "unavailable" } | { kind: "busy" } | { kind: "malformed" };
+
+/** Shuffle on (1) or off (0), applied to the playing queue (classicOS) */
+function setShuffle(on: i32): PromiseLike<SettingResult> {
+  return { kind: "service", service: MODULE, call: "setShuffle", args: [on] } as unknown as PromiseLike<SettingResult>;
+}
+
+/** Repeat 0 off, 1 all, 2 one (classicOS) */
+function setRepeat(mode: i32): PromiseLike<SettingResult> {
+  return { kind: "service", service: MODULE, call: "setRepeat", args: [mode] } as unknown as PromiseLike<SettingResult>;
+}
+
 export const playback = {
   snapshot: () => call("snapshot"),
   setVolume,
+  setShuffle,
+  setRepeat,
 };

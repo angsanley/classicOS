@@ -137,6 +137,8 @@ const PJ_MENU: u32 = 8;
 const PJ_LEFT: u32 = 16;
 const PJ_RIGHT: u32 = 32;
 const PJ_PLAY: u32 = 64;
+/// Menu held long enough for Control Center (host.c MENU_HOLD)
+const PJ_MENU_HOLD: u32 = 128;
 
 fn to_btn(bits: u32) -> u32 {
     [
@@ -147,6 +149,7 @@ fn to_btn(bits: u32) -> u32 {
         (PJ_LEFT, btn::LEFT),
         (PJ_RIGHT, btn::RIGHT),
         (PJ_PLAY, btn::START),
+        (PJ_MENU_HOLD, btn::TRIANGLE),
     ]
     .iter()
     .filter(|(pj, _)| bits & pj != 0)

@@ -25,6 +25,8 @@ struct Playback {
     duration_ms: i32,
     volume: i32,
     shuffle: i32,
+    /// 0 off, 1 all, 2 one
+    repeat: i32,
     path: [u8; 260],
     title: [u8; 128],
     artist: [u8; 128],
@@ -88,6 +90,9 @@ extern "C" {
     fn pocketjs_host_set_brightness(level: i32) -> i32;
     fn pocketjs_host_set_backlight(seconds: i32) -> i32;
     fn pocketjs_host_set_clicker(mode: i32) -> i32;
+    fn pocketjs_host_set_shuffle(on: i32) -> i32;
+    fn pocketjs_host_set_repeat(mode: i32) -> i32;
+    fn pocketjs_host_power_off(unused: i32) -> i32;
     /// Applies a volume in dB, clamped to the codec range; returns the result.
     fn pocketjs_host_set_volume(db: i32) -> i32;
     /// Current track's album art as Rockbox RGB565 (row stride = width).
@@ -303,6 +308,7 @@ fn playback(ui: &mut Ui) -> Value {
         ("volumeMin", Value::I32(p.volume_min)),
         ("volumeMax", Value::I32(p.volume_max)),
         ("shuffle", Value::Bool(p.shuffle != 0)),
+        ("repeat", Value::I32(p.repeat)),
         ("codec", text(&p.codec)),
         ("frequency", Value::I32(p.frequency)),
         ("bitrate", Value::I32(p.bitrate)),
@@ -453,6 +459,9 @@ pub fn serve(ui: &mut Ui) {
             (SYSTEM, "setBrightness") => applied(r.args.first(), pocketjs_host_set_brightness),
             (SYSTEM, "setBacklight") => applied(r.args.first(), pocketjs_host_set_backlight),
             (SYSTEM, "setClicker") => applied(r.args.first(), pocketjs_host_set_clicker),
+            (PLAYBACK, "setShuffle") => applied(r.args.first(), pocketjs_host_set_shuffle),
+            (PLAYBACK, "setRepeat") => applied(r.args.first(), pocketjs_host_set_repeat),
+            (SYSTEM, "powerOff") => applied(Some(&Value::I32(0)), pocketjs_host_power_off),
             (SYSTEM, "measure") => match (r.args.first(), r.args.get(1)) {
                 (Some(Value::String(text)), Some(Value::I32(slot))) => object(vec![
                     ("kind", string("ok")),

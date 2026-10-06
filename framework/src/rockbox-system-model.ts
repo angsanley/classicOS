@@ -69,7 +69,13 @@ function measure(text: string, slot: i32): PromiseLike<MeasureResult> {
   return { kind: "service", service: MODULE, call: "measure", args: [text, slot] } as unknown as PromiseLike<MeasureResult>;
 }
 
+/** Saves state and powers off, like Rockbox's power event (classicOS) */
+function powerOff(): PromiseLike<SetResult> {
+  return { kind: "service", service: MODULE, call: "powerOff", args: [] } as unknown as PromiseLike<SetResult>;
+}
+
 export const system = {
+  powerOff,
   snapshot: () => call("snapshot"),
   measure,
   about,

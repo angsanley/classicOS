@@ -148,7 +148,6 @@ fn corner_alpha(x: usize, y: usize) -> u8 {
 
 struct Art {
     handle: i32,
-    pixels: *const u16,
     texture: i32,
     serial: u32,
     name: String,
@@ -161,7 +160,6 @@ struct Art {
 }
 static mut ART: Art = Art {
     handle: -1,
-    pixels: core::ptr::null(),
     texture: -1,
     serial: 0,
     name: String::new(),
@@ -223,11 +221,13 @@ fn album_art(ui: &mut Ui) -> String {
     let art = unsafe { &mut *core::ptr::addr_of_mut!(ART) };
     let (mut pixels, mut w, mut h) = (core::ptr::null(), 0, 0);
     let handle = unsafe { pocketjs_host_album_art(&mut pixels, &mut w, &mut h) };
-    if handle == art.handle && pixels == art.pixels {
+    // Same handle = same image. Buffering moves its pixels around in memory
+    // (most of all while it fills after boot); they were copied at upload,
+    // and re-uploading would force a full repaint each time.
+    if handle == art.handle {
         return art.name.clone();
     }
     art.handle = handle;
-    art.pixels = pixels;
     if art.texture >= 0 {
         ui.core_mut().free_texture(art.texture);
         art.texture = -1;

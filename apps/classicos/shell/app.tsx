@@ -12,10 +12,10 @@ import { ActionHandler, AxisHandler, Image, Text, View } from "@pocketjs/framewo
 import { BTN } from "@pocketjs/framework/input";
 import { onMount } from "@pocketjs/framework/solid/lifecycle";
 import {
-  available, back, backlightIndex, backlightLabel, backlightOption, backlightSelect, backlightWheel, libraryCount, libraryFirst, libraryIndex, libraryLoading, libraryReady, libraryRows, libraryScroll, librarySelect, libraryTitle, libraryWheel, spinnerFrame, updateStarted, settingsScroll, aboutScroll, aboutWheel, songsText, clickerIndex, clickerLabel, clickerSelect, clickerWheel,
+  available, back, backlightIndex, backlightLabel, backlightOption, backlightSelect, backlightWheel, libraryCount, libraryFirst, libraryIndex, libraryLoading, libraryReady, libraryRows, libraryScroll, librarySelect, libraryTitle, libraryWheel, libraryTracks, librarySubs, libraryTwoLine, libraryPitch, spinnerFrame, updateStarted, settingsScroll, aboutScroll, aboutWheel, songsText, clickerIndex, clickerLabel, clickerSelect, clickerWheel,
   batteryText, brightnessPx, clicker, plugged, brightnessWheel, capacity, settingsIndex, settingsSelect, settingsWheel, version,
   album, art, artistAlbum, date, hold, artBottom, artTop, artist, badge, batteryPx, date, elapsed, hasTrack,
-  drawerIndex, drawerSelect, drawerWheel, musicIndex, musicScroll, musicSelect, musicWheel, openDrawer, poll, progressPx,
+  drawerIndex, drawerSelect, drawerWheel, musicIndex, musicSelect, musicWheel, openDrawer, poll, progressPx,
   remaining, screen, status, time, title, marqueeFits, marqueeOffset,
   volumeLevel, volumeLitPx, volumeShown, wheel,
 } from "./app";
@@ -50,7 +50,7 @@ export default function Shell() {
       </Match>
       <Match when={screen() === "music"}>
         <Music
-          selected={musicIndex()} scroll={musicScroll()}
+          selected={musicIndex()}
           status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
           onWheel={(delta) => musicWheel(delta)} onSelect={() => musicSelect()} onBack={() => back()}
         />
@@ -58,7 +58,7 @@ export default function Shell() {
       <Match when={screen() === "library"}>
         <Library
           title={libraryTitle()} ready={libraryReady()} loading={libraryLoading()} spinner={spinnerFrame()} count={libraryCount()}
-          first={libraryFirst()} rows={libraryRows()} selected={libraryIndex()} scroll={libraryScroll()}
+          first={libraryFirst()} rows={libraryRows()} tracks={libraryTracks()} subs={librarySubs()} twoLine={libraryTwoLine()} pitch={libraryPitch()} selected={libraryIndex()} scroll={libraryScroll()}
           status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
           onWheel={(delta) => libraryWheel(delta)} onSelect={() => librarySelect()} onBack={() => back()}
         />

@@ -1,15 +1,16 @@
-// Music: the library menu. The wheel moves the selection and the list scrolls
-// to keep it in view; Select opens, Menu goes back to the drawer.
+// Music: the library menu, one Group with Apple Music's red glyphs (no tiles,
+// as in Apple Music). Select opens a list; Menu goes back to the drawer.
 
 import { ActionHandler, AxisHandler, Image, View } from "@pocketjs/framework/solid/components";
 import { BTN } from "@pocketjs/framework/input";
 import type { i32 } from "@pocketjs/framework/solid/std";
-import MenuRow from "./MenuRow.tsx";
+import Group from "./Group.tsx";
+import GroupRow from "./GroupRow.tsx";
+import Separator from "./Separator.tsx";
 import StatusBar from "./StatusBar.tsx";
 
 export default function Music(props: {
   selected: i32;
-  scroll: i32;
   status: string;
   time: string;
   batteryPx: i32;
@@ -24,21 +25,24 @@ export default function Music(props: {
       <ActionHandler button={BTN.CIRCLE} latched onPress={() => props.onSelect()} />
       <ActionHandler button={BTN.CROSS} latched onPress={() => props.onBack()} />
       <StatusBar title="Music" lock={false} dark status={props.status} time={props.time} clock batteryPx={props.batteryPx} plugged={props.plugged} />
-      <View class="absolute top-[30] left-[12] w-[296] h-[210] overflow-hidden">
-        <View class="absolute top-0 left-0 w-[296] flex-col gap-[4]" style={{ translateY: -props.scroll }}>
-          <MenuRow selected={props.selected} index={0} label="Playlists" subtitle="" subtitleFits subtitleOffset={0} value="">
+      <View class="absolute top-[30] left-[12]">
+        <Group>
+          <GroupRow index={0} selected={props.selected} label="Playlists" value="" icon chevron check={false}>
             <Image src="icons/menu_playlists.svg" class="w-[32] h-[32]" />
-          </MenuRow>
-          <MenuRow selected={props.selected} index={1} label="Artists" subtitle="" subtitleFits subtitleOffset={0} value="">
+          </GroupRow>
+          <Separator left={56} right={14} />
+          <GroupRow index={1} selected={props.selected} label="Artists" value="" icon chevron check={false}>
             <Image src="icons/menu_artists.svg" class="w-[32] h-[32]" />
-          </MenuRow>
-          <MenuRow selected={props.selected} index={2} label="Albums" subtitle="" subtitleFits subtitleOffset={0} value="">
+          </GroupRow>
+          <Separator left={56} right={14} />
+          <GroupRow index={2} selected={props.selected} label="Albums" value="" icon chevron check={false}>
             <Image src="icons/menu_albums.svg" class="w-[32] h-[32]" />
-          </MenuRow>
-          <MenuRow selected={props.selected} index={3} label="Songs" subtitle="" subtitleFits subtitleOffset={0} value="">
+          </GroupRow>
+          <Separator left={56} right={14} />
+          <GroupRow index={3} selected={props.selected} label="Songs" value="" icon chevron check={false}>
             <Image src="icons/menu_songs.svg" class="w-[32] h-[32]" />
-          </MenuRow>
-        </View>
+          </GroupRow>
+        </Group>
       </View>
     </View>
   );

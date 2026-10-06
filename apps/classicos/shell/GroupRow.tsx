@@ -31,7 +31,7 @@ export default function GroupRow(props: {
             : "w-[288] h-[36] rounded-[10px] bg-white flex-row items-center pl-[12] pr-[10] gap-[12]"}
       >
         {props.children}
-        <View class="flex-1">
+        <View class="flex-1 overflow-hidden">
           <Text class="text-base text-black">{props.label}</Text>
         </View>
         <Show when={props.value !== ""}>

@@ -12,6 +12,7 @@
 #include "tree.h"
 #include "tagcache.h"
 #include "tagtree.h"
+#include "filetypes.h"
 #include "lang.h"
 #include "library.h"
 
@@ -22,12 +23,14 @@ static struct tree_context tc;
 
 /* tagtree starts lists with special rows ([All tracks sorted by album],
  * [All tracks], [Random]). Apple shows "All Songs" only in an artist's
- * album list, so the rest are hidden: rows here skip `hidden` of them.
- * Specials always come first, so visible row v is tree row v + hidden
- * once past the kept ones. */
+ * album list, so the rest are hidden. Then Rockbox sorts [Untagged] first;
+ * Apple puts Unknown Artist/Album last, so it moves to the end. Visible
+ * rows: the kept specials, then the ordinary rows (tree rows from
+ * `specials` on) with any [Untagged] one rotated to the end. */
 static int kept[3];
 static int kept_count;
-static int hidden;
+static int specials;
+static bool untagged_first;
 
 /* Lang id of a tree row's name, -1 for an ordinary row */
 static int row_lang_id(int row)
@@ -39,7 +42,8 @@ static int row_lang_id(int row)
 
 static void map_specials(void)
 {
-    int specials = tc.dirlevel > 0 ? tc.special_entry_count : 0;
+    char name[64];
+    specials = tc.dirlevel > 0 ? tc.special_entry_count : 0;
     kept_count = 0;
     for (int i = 0; i < specials && i < 3; i++) {
         /* Top-level lists (Artists, Albums) have no "All" row; below that
@@ -47,12 +51,21 @@ static void map_specials(void)
         if (tc.dirlevel > 1 && row_lang_id(i) == LANG_TAGNAVI_ALL_TRACKS_SORTED_BY_ALBUM)
             kept[kept_count++] = i;
     }
-    hidden = specials - kept_count;
+    untagged_first = false;
+    if (tc.dirlevel > 0 && specials < tc.filesindir) {
+        tagtree_get_entry_name(&tc, specials, name, sizeof(name));
+        untagged_first = !strcmp(name, str(LANG_TAGNAVI_UNTAGGED));
+    }
 }
 
 static int tree_row(int row)
 {
-    return row < kept_count ? kept[row] : row + hidden;
+    if (row < kept_count)
+        return kept[row];
+    int t = row - kept_count, n = tc.filesindir - specials;
+    if (untagged_first)
+        return t == n - 1 ? specials : specials + 1 + t;
+    return specials + t;
 }
 
 static int visible_row(int row)
@@ -60,7 +73,12 @@ static int visible_row(int row)
     for (int i = 0; i < kept_count; i++)
         if (kept[i] == row)
             return i;
-    return row < hidden + kept_count ? 0 : row - hidden;
+    if (row < specials)
+        return 0;
+    int t = row - specials, n = tc.filesindir - specials;
+    if (untagged_first)
+        return kept_count + (t == 0 ? n - 1 : t - 1);
+    return kept_count + t;
 }
 
 /* From apps/tree.c (tc is ours here) */
@@ -168,7 +186,29 @@ int library_load(void)
 
 int library_count(void)
 {
-    return tc.filesindir - hidden;
+    return tc.filesindir - specials + kept_count;
+}
+
+bool library_tracks(void)
+{
+    return tc.dirlevel > 0 && tagtree_get_attr(&tc) == FILE_ATTR_AUDIO;
+}
+
+/* Song lists formatted title 0x1F artist (pp_song in tagnavi_user.config).
+ * Untagged files show their file name without one and sort anywhere, so
+ * look past them. the first 32 rows; a list of only untagged files
+ * stays one line. */
+bool library_two_line(void)
+{
+    char name[128];
+    if (!library_tracks())
+        return false;
+    for (int i = 0; i < library_count() && i < 32; i++) {
+        library_row(i, name, sizeof(name));
+        if (strchr(name, '\x1f'))
+            return true;
+    }
+    return false;
 }
 
 int library_depth(void)

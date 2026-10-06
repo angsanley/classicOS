@@ -20,6 +20,13 @@ export default function Library(props: {
   count: i32;
   first: i32;
   rows: string[];
+  /** Rows are songs: no chevrons */
+  tracks: boolean;
+  /** Song rows' artist lines (twoLine) */
+  subs: string[];
+  twoLine: boolean;
+  /** Row pitch, px */
+  pitch: i32;
   selected: i32;
   scroll: i32;
   status: string;
@@ -48,12 +55,13 @@ export default function Library(props: {
       </Show>
       <View class="absolute top-[30] left-[12] w-[296] h-[210] overflow-hidden">
         <View class="absolute top-0 left-0 w-[296]" style={{ translateY: -props.scroll }}>
-          <LibraryRow index={props.first} count={props.count} selected={props.selected} label={props.rows[0] ?? ""} />
-          <LibraryRow index={props.first + 1} count={props.count} selected={props.selected} label={props.rows[1] ?? ""} />
-          <LibraryRow index={props.first + 2} count={props.count} selected={props.selected} label={props.rows[2] ?? ""} />
-          <LibraryRow index={props.first + 3} count={props.count} selected={props.selected} label={props.rows[3] ?? ""} />
-          <LibraryRow index={props.first + 4} count={props.count} selected={props.selected} label={props.rows[4] ?? ""} />
-          <LibraryRow index={props.first + 5} count={props.count} selected={props.selected} label={props.rows[5] ?? ""} />
+          <View class="absolute top-0 left-0 w-[296] rounded-[14px] bg-white" style={{ height: props.count * props.pitch - 1 }} />
+          <LibraryRow index={props.first} count={props.count} selected={props.selected} label={props.rows[0] ?? ""} sub={props.subs[0] ?? ""} tracks={props.tracks} twoLine={props.twoLine} pitch={props.pitch} />
+          <LibraryRow index={props.first + 1} count={props.count} selected={props.selected} label={props.rows[1] ?? ""} sub={props.subs[1] ?? ""} tracks={props.tracks} twoLine={props.twoLine} pitch={props.pitch} />
+          <LibraryRow index={props.first + 2} count={props.count} selected={props.selected} label={props.rows[2] ?? ""} sub={props.subs[2] ?? ""} tracks={props.tracks} twoLine={props.twoLine} pitch={props.pitch} />
+          <LibraryRow index={props.first + 3} count={props.count} selected={props.selected} label={props.rows[3] ?? ""} sub={props.subs[3] ?? ""} tracks={props.tracks} twoLine={props.twoLine} pitch={props.pitch} />
+          <LibraryRow index={props.first + 4} count={props.count} selected={props.selected} label={props.rows[4] ?? ""} sub={props.subs[4] ?? ""} tracks={props.tracks} twoLine={props.twoLine} pitch={props.pitch} />
+          <LibraryRow index={props.first + 5} count={props.count} selected={props.selected} label={props.rows[5] ?? ""} sub={props.subs[5] ?? ""} tracks={props.tracks} twoLine={props.twoLine} pitch={props.pitch} />
         </View>
       </View>
     </View>

@@ -234,6 +234,8 @@ struct pocketjs_library {
     int32_t depth;
     int32_t selected;
     int32_t playing;
+    int32_t tracks; /* rows are songs */
+    int32_t two_line; /* rows are title 0x1F artist */
     char title[128];
 };
 
@@ -252,6 +254,8 @@ void pocketjs_host_library(int32_t op, int32_t arg, struct pocketjs_library *out
     out->depth = library_depth();
     out->selected = library_selected();
     out->playing = result == LIBRARY_PLAYING;
+    out->tracks = library_tracks();
+    out->two_line = library_two_line();
     library_title(out->title, sizeof(out->title));
 }
 

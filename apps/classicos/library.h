@@ -10,6 +10,10 @@ int library_open(void);
 /** Reloads the current level */
 int library_load(void);
 int library_count(void);
+/** The current list is songs (Select plays) rather than lists to open */
+bool library_tracks(void);
+/** Rows are title 0x1F artist pairs, shown as two lines */
+bool library_two_line(void);
 /** 0 = the top menu */
 int library_depth(void);
 /** The row to focus, restored when going back */

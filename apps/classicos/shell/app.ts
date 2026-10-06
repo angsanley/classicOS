@@ -111,10 +111,12 @@ export async function poll(): Promise<void> {
     // The database is still building: retry the list about once a second.
     if (screen() === "library" && !libraryReady() && libraryOp === 0 && imod(step, 30) === 0) libraryOp = LIBRARY_OPEN;
     if (libraryOp !== 0) await runLibraryOp();
-    if (screen() === "library" && idiv(libraryScroll(), ROW_PITCH) !== rowsLoaded) {
-      const r = await library.rows(idiv(libraryScroll(), ROW_PITCH));
+    if (screen() === "library" && idiv(libraryScroll(), libraryPitch()) !== rowsLoaded) {
+      // Label room in a GroupRow: 266 px, less the chevron and its gap
+      const r = await library.rows(idiv(libraryScroll(), libraryPitch()), libraryTracks() ? 266 : 238);
       if (r.kind === "ok") {
         setLibraryRows(r.rows);
+        setLibrarySubs(r.subs);
         setLibraryFirst(r.first);
         rowsLoaded = r.first;
       }
@@ -296,10 +298,9 @@ export const [drawerIndex, setDrawerIndex] = createSignal<i32>(0);
 /** Music rows: Playlists, Artists, Albums, Songs */
 const MUSIC_ITEMS: i32 = 4;
 export const [musicIndex, setMusicIndex] = createSignal<i32>(0);
-/** Music list scroll in px; moves only to keep the selection in view */
-export const [musicScroll, setMusicScroll] = createSignal<i32>(0);
-/** Row height + gap, and the list's visible height below the status bar */
-const ROW_PITCH: i32 = 48;
+/** Library row height + separator, and the list's visible height below the
+ * status bar */
+const ROW_PITCH: i32 = 45;
 const ROW_HEIGHT: i32 = 44;
 const LIST_VIEW: i32 = 206;
 
@@ -321,7 +322,6 @@ function go(to: string): void {
 function open(to: string): void {
   if (to === "music") {
     setMusicIndex(0);
-    setMusicScroll(0);
   } else if (to === "settings") {
     setSettingsIndex(0);
     setSettingsScroll(0);
@@ -353,6 +353,13 @@ async function spin(): Promise<void> {
 /** libraryRows() are rows libraryFirst() onwards */
 export const [libraryFirst, setLibraryFirst] = createSignal<i32>(0);
 export const [libraryRows, setLibraryRows] = createSignal<string[]>([]);
+/** The list is songs: no chevrons, Select plays */
+export const [libraryTracks, setLibraryTracks] = createSignal<boolean>(false);
+/** Song rows with the artist under the title (librarySubs) */
+export const [libraryTwoLine, setLibraryTwoLine] = createSignal<boolean>(false);
+export const [librarySubs, setLibrarySubs] = createSignal<string[]>([]);
+/** Row pitch: a 44 or 52 px row plus its hairline */
+export const libraryPitch = createMemo<i32>(() => (libraryTwoLine() ? 53 : ROW_PITCH));
 let libraryDepth: i32 = 0;
 const LIBRARY_OPEN: i32 = 1;
 const LIBRARY_ENTER: i32 = 2;
@@ -400,9 +407,11 @@ function applyLevel(l: LevelResult): void {
   }
   setLibraryTitle(l.title);
   setLibraryCount(l.count);
+  setLibraryTracks(l.tracks);
+  setLibraryTwoLine(l.twoLine);
   libraryDepth = l.depth;
   setLibraryIndex(l.selected);
-  setLibraryScroll(scrollTo(l.selected, 0));
+  setLibraryScroll(scrollToTop(l.selected * libraryPitch(), 0, libraryPitch() - 1));
   rowsLoaded = -1;
 }
 
@@ -413,13 +422,13 @@ function step(index: i32, delta: i32, count: i32): i32 {
 
 /** Scroll that keeps row `index` in view, moving as little as possible */
 function scrollTo(index: i32, scroll: i32): i32 {
-  return scrollToTop(index * ROW_PITCH, scroll);
+  return scrollToTop(index * ROW_PITCH, scroll, ROW_HEIGHT);
 }
 
-/** Same, for a 44 px row whose top is at `top` */
-function scrollToTop(top: i32, scroll: i32): i32 {
+/** Same, for a row `height` px tall whose top is at `top` */
+function scrollToTop(top: i32, scroll: i32, height: i32): i32 {
   if (top < scroll) return top;
-  if (top + ROW_HEIGHT > scroll + LIST_VIEW) return top + ROW_HEIGHT - LIST_VIEW;
+  if (top + height > scroll + LIST_VIEW) return top + height - LIST_VIEW;
   return scroll;
 }
 
@@ -448,7 +457,6 @@ function leaveStoppedNowPlaying(): void {
 
 export function musicWheel(delta: i32): void {
   setMusicIndex(step(musicIndex(), delta, MUSIC_ITEMS));
-  setMusicScroll(scrollTo(musicIndex(), musicScroll()));
   go("music");
 }
 
@@ -492,7 +500,7 @@ export function musicSelect(): void {
 export function libraryWheel(delta: i32): void {
   if (libraryCount() === 0) return;
   setLibraryIndex(step(libraryIndex(), delta, libraryCount()));
-  setLibraryScroll(scrollTo(libraryIndex(), libraryScroll()));
+  setLibraryScroll(scrollToTop(libraryIndex() * libraryPitch(), libraryScroll(), libraryPitch() - 1));
   go("library");
 }
 
@@ -551,7 +559,7 @@ async function updateNotice(): Promise<void> {
 
 export function settingsWheel(delta: i32): void {
   setSettingsIndex(step(settingsIndex(), delta, SETTINGS_ITEMS));
-  setSettingsScroll(scrollToTop(SETTINGS_TOPS[settingsIndex()], settingsScroll()));
+  setSettingsScroll(scrollToTop(SETTINGS_TOPS[settingsIndex()], settingsScroll(), ROW_HEIGHT));
   go("settings");
 }
 

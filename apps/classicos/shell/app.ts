@@ -51,6 +51,8 @@ export const [clicker, setClicker] = createSignal<i32>(1);
 export const [version, setVersion] = createSignal<string>("");
 export const [diskMb, setDiskMb] = createSignal<i32>(0);
 export const [freeMb, setFreeMb] = createSignal<i32>(0);
+/** Tracks in the music database, -1 while it is not ready */
+export const [songs, setSongs] = createSignal<i32>(-1);
 
 const WEEKDAYS: string[] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS: string[] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -103,6 +105,7 @@ export async function poll(): Promise<void> {
         setVersion(a.version);
         setDiskMb(a.diskMb);
         setFreeMb(a.freeMb);
+        setSongs(a.songs);
       }
     }
     // The database is still building: retry the list about once a second.
@@ -410,7 +413,11 @@ function step(index: i32, delta: i32, count: i32): i32 {
 
 /** Scroll that keeps row `index` in view, moving as little as possible */
 function scrollTo(index: i32, scroll: i32): i32 {
-  const top = index * ROW_PITCH;
+  return scrollToTop(index * ROW_PITCH, scroll);
+}
+
+/** Same, for a 44 px row whose top is at `top` */
+function scrollToTop(top: i32, scroll: i32): i32 {
   if (top < scroll) return top;
   if (top + ROW_HEIGHT > scroll + LIST_VIEW) return top + ROW_HEIGHT - LIST_VIEW;
   return scroll;
@@ -503,6 +510,18 @@ export const marqueeFits = createMemo<boolean>(() => marqueeWidth() <= TITLE_BOX
 // Settings: Brightness (a level screen), Backlight and Clicker (pickers),
 // Update Library (an action), About.
 const SETTINGS_ITEMS: i32 = 5;
+/** Row tops in the Settings list (Settings.tsx): 44 px rows, a 1 px
+ * separator inside a group, 10 px between groups */
+const SETTINGS_TOPS: i32[] = [0, 45, 99, 153, 207];
+/** About scrolls by the wheel; its content is 287 px in a 210 px view */
+export const [aboutScroll, setAboutScroll] = createSignal<i32>(0);
+const ABOUT_MAX_SCROLL: i32 = 77;
+
+export function aboutWheel(delta: i32): void {
+  const next = aboutScroll() + idiv(delta, WHEEL_STEP) * 44;
+  setAboutScroll(next < 0 ? 0 : next > ABOUT_MAX_SCROLL ? ABOUT_MAX_SCROLL : next);
+  go("about");
+}
 export const [settingsIndex, setSettingsIndex] = createSignal<i32>(0);
 export const [settingsScroll, setSettingsScroll] = createSignal<i32>(0);
 /** Picker cursor on the Backlight page */
@@ -532,7 +551,7 @@ async function updateNotice(): Promise<void> {
 
 export function settingsWheel(delta: i32): void {
   setSettingsIndex(step(settingsIndex(), delta, SETTINGS_ITEMS));
-  setSettingsScroll(scrollTo(settingsIndex(), settingsScroll()));
+  setSettingsScroll(scrollToTop(SETTINGS_TOPS[settingsIndex()], settingsScroll()));
   go("settings");
 }
 
@@ -551,6 +570,7 @@ export function settingsSelect(): void {
     go("settings");
   } else {
     aboutWanted = true;
+    setAboutScroll(0);
     go("about");
   }
 }
@@ -602,6 +622,14 @@ export const brightnessPx = createMemo<i32>(() =>
 function gigabytes(mb: i32): string {
   return `${idiv(mb, 1024)}.${idiv(imod(mb, 1024) * 10, 1024)} GB`;
 }
+/** "1,284"; "" while the database is not ready */
+export const songsText = createMemo<string>(() => {
+  const n = songs();
+  if (n < 0) return "";
+  if (n < 1000) return `${n}`;
+  const rest = imod(n, 1000);
+  return `${idiv(n, 1000)},${rest < 10 ? "00" : rest < 100 ? "0" : ""}${rest}`;
+});
 export const capacity = createMemo<string>(() => gigabytes(diskMb()));
 export const available = createMemo<string>(() => gigabytes(freeMb()));
 export const batteryText = createMemo<string>(() => `${battery()}%`);

@@ -22,6 +22,7 @@
 #include "rbversion.h"
 #include "settings_classicos.h"
 #include "library.h"
+#include "tagcache.h"
 #ifdef HAVE_ALBUMART
 #include "bmp.h"
 #include "albumart.h"
@@ -66,6 +67,7 @@ struct pocketjs_about {
     char version[32];
     int32_t disk_mb;
     int32_t free_mb;
+    int32_t songs; /* tracks in the music database, -1 while it isn't ready */
 };
 
 /* audio_current_track() fills the playing track's metadata on demand. Asked
@@ -185,6 +187,7 @@ void pocketjs_host_about(struct pocketjs_about *out)
     volume_size(IF_MV(0,) &size_kib, &free_kib);
     out->disk_mb = size_kib / 1024;
     out->free_mb = free_kib / 1024;
+    out->songs = tagcache_is_usable() ? tagcache_get_stat()->total_entries : -1;
 }
 
 #ifdef HAVE_ALBUMART

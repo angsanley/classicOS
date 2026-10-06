@@ -12,7 +12,7 @@ import { ActionHandler, AxisHandler, Image, Text, View } from "@pocketjs/framewo
 import { BTN } from "@pocketjs/framework/input";
 import { onMount } from "@pocketjs/framework/solid/lifecycle";
 import {
-  available, back, backlightIndex, backlightLabel, backlightOption, backlightSelect, backlightWheel, libraryCount, libraryFirst, libraryIndex, libraryLoading, libraryReady, libraryRows, libraryScroll, librarySelect, libraryTitle, libraryWheel, spinnerFrame, updateStarted, settingsScroll, clickerIndex, clickerLabel, clickerSelect, clickerWheel,
+  available, back, backlightIndex, backlightLabel, backlightOption, backlightSelect, backlightWheel, libraryCount, libraryFirst, libraryIndex, libraryLoading, libraryReady, libraryRows, libraryScroll, librarySelect, libraryTitle, libraryWheel, spinnerFrame, updateStarted, settingsScroll, aboutScroll, aboutWheel, songsText, clickerIndex, clickerLabel, clickerSelect, clickerWheel,
   batteryText, brightnessPx, clicker, plugged, brightnessWheel, capacity, settingsIndex, settingsSelect, settingsWheel, version,
   album, art, artistAlbum, date, hold, artBottom, artTop, artist, badge, batteryPx, date, elapsed, hasTrack,
   drawerIndex, drawerSelect, drawerWheel, musicIndex, musicScroll, musicSelect, musicWheel, openDrawer, poll, progressPx,
@@ -79,7 +79,7 @@ export default function Shell() {
       </Match>
       <Match when={screen() === "backlight"}>
         <Picker
-          title="Backlight" label0="10 seconds" label1="30 seconds" label2="1 minute" label3="Always On"
+          title="Auto Dim" label0="10 seconds" label1="30 seconds" label2="1 minute" label3="Always On"
           selected={backlightIndex()} current={backlightOption()}
           status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
           onWheel={(delta) => backlightWheel(delta)} onSelect={() => backlightSelect()} onBack={() => back()}
@@ -95,9 +95,10 @@ export default function Shell() {
       </Match>
       <Match when={screen() === "about"}>
         <About
-          version={version()} capacity={capacity()} available={available()} battery={batteryText()}
+          version={version()} songs={songsText()} capacity={capacity()} available={available()} battery={batteryText()}
+          scroll={aboutScroll()}
           status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
-          onBack={() => back()}
+          onWheel={(delta) => aboutWheel(delta)} onBack={() => back()}
         />
       </Match>
       <Match when={screen() === "now"}>

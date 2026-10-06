@@ -7,6 +7,8 @@ void library_init(void);
 /** Back to the top menu, loaded; returns the row count or -1 while the
  * database isn't ready. */
 int library_open(void);
+/** The Playlists list (Rockbox's playlist folder); returns 0 */
+int library_open_playlists(void);
 /** Reloads the current level */
 int library_load(void);
 int library_count(void);

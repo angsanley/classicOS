@@ -15,6 +15,8 @@ export default function Library(props: {
   title: string;
   ready: boolean;
   loading: boolean;
+  /** Empty-list text */
+  empty: string;
   /** Spinner frame, 0-7 */
   spinner: i32;
   count: i32;
@@ -50,7 +52,7 @@ export default function Library(props: {
       </Show>
       <Show when={props.count === 0 && props.ready && !props.loading}>
         <View class="absolute top-[30] left-0 right-0 bottom-0 items-center justify-center">
-          <Text class="text-base text-[#6c6c70]">No Music</Text>
+          <Text class="text-base text-[#6c6c70]">{props.empty}</Text>
         </View>
       </Show>
       <View class="absolute top-[30] left-[12] w-[296] h-[210] overflow-hidden">

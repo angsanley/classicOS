@@ -364,6 +364,9 @@ let libraryDepth: i32 = 0;
 const LIBRARY_OPEN: i32 = 1;
 const LIBRARY_ENTER: i32 = 2;
 const LIBRARY_BACK: i32 = 3;
+const LIBRARY_PLAYLISTS: i32 = 4;
+/** What an empty list says */
+export const [libraryEmpty, setLibraryEmpty] = createSignal<string>("No Music");
 let libraryOp: i32 = 0;
 /** LIBRARY_OPEN: the tagnavi menu row to open (Artists, Albums, Songs) */
 let libraryRoot: i32 = 0;
@@ -382,6 +385,9 @@ async function runLibraryOp(): Promise<void> {
       return;
     }
     const l = await library.enter(libraryRoot);
+    applyLevel(l);
+  } else if (op === LIBRARY_PLAYLISTS) {
+    const l = await library.playlists();
     applyLevel(l);
   } else if (op === LIBRARY_ENTER) {
     const l = await library.enter(libraryIndex());
@@ -479,14 +485,16 @@ export function back(): void {
 }
 
 export function musicSelect(): void {
-  // Playlists needs a playlist source (.m3u files) first
   if (musicIndex() === 0) {
-    go("music");
-    return;
+    libraryOp = LIBRARY_PLAYLISTS;
+    setLibraryTitle("Playlists");
+    setLibraryEmpty("No Playlists");
+  } else {
+    libraryRoot = musicIndex() - 1;
+    libraryOp = LIBRARY_OPEN;
+    setLibraryTitle(LIBRARY_ROOTS[libraryRoot]);
+    setLibraryEmpty("No Music");
   }
-  libraryRoot = musicIndex() - 1;
-  libraryOp = LIBRARY_OPEN;
-  setLibraryTitle(LIBRARY_ROOTS[libraryRoot]);
   setLibraryIndex(0);
   setLibraryScroll(0);
   setLibraryCount(0);

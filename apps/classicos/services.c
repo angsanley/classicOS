@@ -248,6 +248,8 @@ void pocketjs_host_library(int32_t op, int32_t arg, struct pocketjs_library *out
         result = library_enter(arg);
     else if (op == 2)
         library_back();
+    else if (op == 4)
+        rc = library_open_playlists();
     else
         library_update();
     out->count = rc < 0 ? -1 : library_count();

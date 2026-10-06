@@ -1,8 +1,11 @@
 /* Music library: Rockbox's tagcache database, browsed with tagtree (the
  * Rockbox Database browser) through one tree context, the way apps/tree.c
- * drives it. The menu comes from tagnavi_user.config. */
+ * drives it, with the menu from tagnavi_user.config. Playlists come from
+ * Rockbox's playlist folder (below). */
 
 #include "config.h"
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "file.h"
 #include "kernel.h"
@@ -14,6 +17,10 @@
 #include "tagtree.h"
 #include "filetypes.h"
 #include "lang.h"
+#include "dir.h"
+#include "pathfuncs.h"
+#include "metadata.h"
+#include "playlist.h"
 #include "library.h"
 
 /* Rockbox's max_files_in_dir default; tagtree pages longer lists itself. */
@@ -160,8 +167,167 @@ void library_init(void)
     tagtree_init();
 }
 
+/* Playlists: the .m3u/.m3u8 files in Rockbox's playlist folder
+ * (PLAYLIST_CATALOG_DEFAULT_DIR, /Playlists), then one playlist's songs.
+ * Picking a song plays the playlist from it, as Rockbox's file browser does
+ * (playlist_create + playlist_start). fixed caps; a bigger folder
+ * or playlist shows its first MAX_* entries. */
+#define PLAYLIST_DIR PLAYLIST_CATALOG_DEFAULT_DIR
+#define MAX_PLAYLISTS 128
+#define MAX_PLAYLIST_SONGS 5000
+static bool pl_active;
+static char pl_names[MAX_PLAYLISTS][64]; /* file names, sorted */
+static int pl_count;
+static int pl_open = -1;                 /* playlist shown, -1 = the list */
+static int pl_last;                      /* its row, focused again on back */
+static int32_t pl_index[MAX_PLAYLIST_SONGS]; /* file offset of each entry */
+static int pl_songs;
+static struct mp3entry pl_id3;
+
+static int name_cmp(const void *a, const void *b)
+{
+    return strcasecmp(a, b);
+}
+
+static void pl_scan(void)
+{
+    struct dirent *e;
+    DIR *d = opendir(PLAYLIST_DIR);
+    pl_count = 0;
+    if (!d)
+        return;
+    while ((e = readdir(d)) && pl_count < MAX_PLAYLISTS) {
+        const char *ext = strrchr(e->d_name, '.');
+        if (e->d_name[0] == '.' || !ext ||
+            (strcasecmp(ext, ".m3u") && strcasecmp(ext, ".m3u8")) ||
+            strlen(e->d_name) >= sizeof(pl_names[0]))
+            continue;
+        strcpy(pl_names[pl_count++], e->d_name);
+    }
+    closedir(d);
+    qsort(pl_names, pl_count, sizeof(pl_names[0]), name_cmp);
+}
+
+/* Entry offsets by the rule in apps/playlist.c add_indices_to_playlist():
+ * each line not starting with '#', after any UTF-8 BOM. So row i is
+ * playlist index i once playlist_create() loads the file. */
+static void pl_index_songs(void)
+{
+    char path[MAX_PATH];
+    unsigned char buf[512];
+    bool line_start = true;
+    ssize_t n;
+    long pos = 0;
+    pl_songs = 0;
+    snprintf(path, sizeof(path), "%s/%s", PLAYLIST_DIR, pl_names[pl_open]);
+    int fd = open(path, O_RDONLY);
+    if (fd < 0)
+        return;
+    if (read(fd, buf, 3) == 3 && buf[0] == 0xef && buf[1] == 0xbb && buf[2] == 0xbf)
+        pos = 3;
+    lseek(fd, pos, SEEK_SET);
+    while ((n = read(fd, buf, sizeof(buf))) > 0) {
+        for (int i = 0; i < n; i++) {
+            if (buf[i] == '\n' || buf[i] == '\r')
+                line_start = true;
+            else if (line_start) {
+                line_start = false;
+                if (buf[i] != '#' && pl_songs < MAX_PLAYLIST_SONGS)
+                    pl_index[pl_songs++] = pos + i;
+            }
+        }
+        pos += n;
+    }
+    close(fd);
+}
+
+/* From apps/playlist.c format_track_path(): a playlist line to a full path
+ * (trailing blanks, backslashes, drive letters, relative paths). */
+static ssize_t format_track_path(char *dest, char *src, int buf_length,
+                                 const char *dir, size_t dlen)
+{
+    size_t len = strcspn(src, "\r\n");
+    while (len > 0) {
+        int c = src[len - 1];
+        if (c != '\t' && c != ' ')
+            break;
+        len--;
+    }
+    src[len] = '\0';
+    path_correct_separators(src, src);
+    if (path_strip_drive(src, (const char **)&src, true) >= 0 &&
+        src[-1] == PATH_SEPCH)
+    {
+#ifdef HAVE_MULTIVOLUME
+        const char *p;
+        path_strip_last_volume(dir, &p, false);
+        dlen = (p-dir);
+#else
+        dir = "";
+#endif
+    }
+    if (*dir == '\0') {
+        dir = PATH_ROOTSTR;
+        dlen = -1u;
+    }
+    len = path_append_ex(dest, dir, dlen, src, buf_length);
+    if (len >= (size_t)buf_length)
+        return -1;
+    path_remove_dot_segments(dest, dest);
+    return strlen(dest);
+}
+
+/* Name without the extension */
+static void strip_ext(char *buf, size_t size, const char *name)
+{
+    strmemccpy(buf, name, size);
+    char *dot = strrchr(buf, '.');
+    if (dot && dot != buf)
+        *dot = '\0';
+}
+
+/* Song row: "title 0x1F artist" from the file's tags (the file name when
+ * untagged), like the Songs list */
+static void pl_song_row(int index, char *buf, size_t size)
+{
+    char line[MAX_PATH], path[MAX_PATH];
+    snprintf(path, sizeof(path), "%s/%s", PLAYLIST_DIR, pl_names[pl_open]);
+    int fd = open(path, O_RDONLY);
+    if (fd < 0)
+        return;
+    lseek(fd, pl_index[index], SEEK_SET);
+    ssize_t n = read(fd, line, sizeof(line) - 1);
+    close(fd);
+    if (n <= 0)
+        return;
+    line[n] = '\0';
+    if (format_track_path(path, line, sizeof(path), PLAYLIST_DIR, -1u) < 0)
+        return;
+    memset(&pl_id3, 0, sizeof(pl_id3));
+    fd = open(path, O_RDONLY);
+    bool tags = fd >= 0 && get_metadata(&pl_id3, fd, path) && pl_id3.title;
+    if (fd >= 0)
+        close(fd);
+    if (tags)
+        snprintf(buf, size, "%s\x1f%s", pl_id3.title, pl_id3.artist ? pl_id3.artist : "");
+    else {
+        const char *base = strrchr(path, '/');
+        strip_ext(buf, size, base ? base + 1 : path);
+    }
+}
+
+int library_open_playlists(void)
+{
+    pl_active = true;
+    pl_open = -1;
+    pl_last = 0;
+    pl_scan();
+    return 0;
+}
+
 int library_open(void)
 {
+    pl_active = false;
     while (tc.dirlevel > 0)
         tagtree_exit(&tc, false);
     tc.currtable = 0;
@@ -186,6 +352,8 @@ int library_load(void)
 
 int library_count(void)
 {
+    if (pl_active)
+        return pl_open < 0 ? pl_count : pl_songs;
     /* A failed load (filesindir 0) still counted its specials */
     int n = tc.filesindir - specials + kept_count;
     return n > 0 ? n : 0;
@@ -193,6 +361,8 @@ int library_count(void)
 
 bool library_tracks(void)
 {
+    if (pl_active)
+        return pl_open >= 0;
     return tc.dirlevel > 0 && tagtree_get_attr(&tc) == FILE_ATTR_AUDIO;
 }
 
@@ -203,6 +373,8 @@ bool library_tracks(void)
 bool library_two_line(void)
 {
     char name[128];
+    if (pl_active)
+        return pl_open >= 0;
     if (!library_tracks())
         return false;
     for (int i = 0; i < library_count() && i < 32; i++) {
@@ -215,16 +387,27 @@ bool library_two_line(void)
 
 int library_depth(void)
 {
+    if (pl_active)
+        return pl_open < 0 ? 1 : 2;
     return tc.dirlevel;
 }
 
 int library_selected(void)
 {
+    if (pl_active)
+        return pl_open < 0 ? pl_last : 0;
     return visible_row(tc.selected_item);
 }
 
 void library_title(char *buf, size_t size)
 {
+    if (pl_active) {
+        if (pl_open < 0)
+            strmemccpy(buf, "Playlists", size);
+        else
+            strip_ext(buf, size, pl_names[pl_open]);
+        return;
+    }
     strmemccpy(buf, tc.dirlevel > 0 ? tagtree_get_title(&tc) : "Music", size);
 }
 
@@ -233,6 +416,13 @@ void library_row(int index, char *buf, size_t size)
     buf[0] = '\0';
     if (index < 0 || index >= library_count())
         return;
+    if (pl_active) {
+        if (pl_open < 0)
+            strip_ext(buf, size, pl_names[index]);
+        else
+            pl_song_row(index, buf, size);
+        return;
+    }
     int row = tree_row(index);
     if (row_lang_id(row) == LANG_TAGNAVI_ALL_TRACKS_SORTED_BY_ALBUM) {
         strmemccpy(buf, "All Songs", size);
@@ -251,6 +441,17 @@ int library_enter(int index)
 {
     if (index < 0 || index >= library_count())
         return LIBRARY_STAYED;
+    if (pl_active) {
+        if (pl_open < 0) {
+            pl_open = pl_last = index;
+            pl_index_songs();
+            return LIBRARY_ENTERED;
+        }
+        if (playlist_create(PLAYLIST_DIR, pl_names[pl_open]) < 0)
+            return LIBRARY_STAYED;
+        playlist_start(index, 0, 0);
+        return LIBRARY_PLAYING;
+    }
     tc.selected_item = tree_row(index);
     /* 2: a track was picked and its list now plays from it (tree.c) */
     if (tagtree_enter(&tc, true) == 2)
@@ -261,6 +462,12 @@ int library_enter(int index)
 
 bool library_back(void)
 {
+    if (pl_active) {
+        if (pl_open < 0)
+            return false;
+        pl_open = -1;
+        return true;
+    }
     if (tc.dirlevel == 0)
         return false;
     tagtree_exit(&tc, true);

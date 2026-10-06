@@ -221,6 +221,7 @@
     "./model/tasks": "./framework/src/model-tasks.ts",
     "./model/animation": "./framework/src/model-animation.ts",
     "./net/model": "./framework/src/net-model.ts",
+    "./rockbox/library/model": "./framework/src/rockbox-library-model.ts",
     "./rockbox/playback/model": "./framework/src/rockbox-playback-model.ts",
     "./rockbox/system/model": "./framework/src/rockbox-system-model.ts",
     "./physics": "./framework/src/physics.ts",

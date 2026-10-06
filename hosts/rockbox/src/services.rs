@@ -12,7 +12,8 @@ use microts::{
 
 pub const PLAYBACK: &str = "@pocketjs/framework/rockbox/playback/model";
 pub const SYSTEM: &str = "@pocketjs/framework/rockbox/system/model";
-pub const NAMES: [&str; 2] = [PLAYBACK, SYSTEM];
+pub const LIBRARY: &str = "@pocketjs/framework/rockbox/library/model";
+pub const NAMES: [&str; 3] = [LIBRARY, PLAYBACK, SYSTEM];
 
 /// Mirrors `struct pocketjs_playback` on the C side.
 #[repr(C)]
@@ -54,6 +55,17 @@ struct System {
     clicker: i32,
 }
 
+/// Mirrors `struct pocketjs_library` on the C side.
+#[repr(C)]
+struct Library {
+    /// -1 while the database is unavailable
+    count: i32,
+    depth: i32,
+    selected: i32,
+    playing: i32,
+    title: [u8; 128],
+}
+
 #[repr(C)]
 struct About {
     version: [u8; 32],
@@ -65,6 +77,10 @@ extern "C" {
     fn pocketjs_host_playback(out: *mut Playback);
     fn pocketjs_host_system(out: *mut System);
     fn pocketjs_host_about(out: *mut About);
+    /// Runs a library op (0 open, 1 enter `arg`, 2 back) and reports the level.
+    fn pocketjs_host_library(op: i32, arg: i32, out: *mut Library);
+    /// Writes row `index`'s name (NUL-terminated) into `buf`.
+    fn pocketjs_host_library_row(index: i32, buf: *mut u8, size: i32);
     fn pocketjs_host_set_brightness(level: i32) -> i32;
     fn pocketjs_host_set_backlight(seconds: i32) -> i32;
     fn pocketjs_host_set_clicker(mode: i32) -> i32;
@@ -327,6 +343,38 @@ fn about() -> Value {
     ])
 }
 
+/// Rows per `rows` call: a screenful and then some
+const LIBRARY_ROWS: i32 = 6;
+
+fn library(op: i32, arg: i32) -> Value {
+    // SAFETY: plain-old-data struct; C fills every field.
+    let mut l: Library = unsafe { core::mem::zeroed() };
+    unsafe { pocketjs_host_library(op, arg, &mut l) };
+    if l.count < 0 {
+        return object(vec![("kind", string("unavailable"))]);
+    }
+    object(vec![
+        ("kind", string("ok")),
+        ("title", text(&l.title)),
+        ("count", Value::I32(l.count)),
+        ("depth", Value::I32(l.depth)),
+        ("selected", Value::I32(l.selected)),
+        ("playing", Value::Bool(l.playing != 0)),
+    ])
+}
+
+fn library_rows(first: i32) -> Value {
+    let mut buf = [0u8; 128];
+    let rows = (first.max(0)..first.max(0) + LIBRARY_ROWS)
+        .map(|i| {
+            // SAFETY: C writes at most buf.len() bytes, NUL-terminated.
+            unsafe { pocketjs_host_library_row(i, buf.as_mut_ptr(), buf.len() as i32) };
+            text(&buf)
+        })
+        .collect();
+    object(vec![("kind", string("ok")), ("first", Value::I32(first)), ("rows", Value::Array(rows))])
+}
+
 /// `{kind: "ok", value}` from a host setter that returns the applied value
 fn applied(arg: Option<&Value>, set: unsafe extern "C" fn(i32) -> i32) -> Value {
     match arg {
@@ -348,6 +396,16 @@ pub fn serve(ui: &mut Ui) {
                     let applied = unsafe { pocketjs_host_set_volume(*db) };
                     object(vec![("kind", string("ok")), ("volume", Value::I32(applied))])
                 }
+                _ => object(vec![("kind", string("malformed"))]),
+            },
+            (LIBRARY, "open") => library(0, 0),
+            (LIBRARY, "enter") => match r.args.first() {
+                Some(Value::I32(index)) => library(1, *index),
+                _ => object(vec![("kind", string("malformed"))]),
+            },
+            (LIBRARY, "back") => library(2, 0),
+            (LIBRARY, "rows") => match r.args.first() {
+                Some(Value::I32(first)) => library_rows(*first),
                 _ => object(vec![("kind", string("malformed"))]),
             },
             (SYSTEM, "snapshot") => system(),

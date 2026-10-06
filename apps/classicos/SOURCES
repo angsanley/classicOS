@@ -15,6 +15,7 @@ host.c
 ../playback.c
 ../codecs.c
 ../playlist.c
+../tagcache.c
 settings.c
 
 #ifdef HAVE_ALBUMART
@@ -28,3 +29,4 @@ settings.c
 #endif
 media.c
 services.c
+library.c

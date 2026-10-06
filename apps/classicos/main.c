@@ -23,6 +23,7 @@
 #include "services.h"
 #include "settings.h"
 #include "settings_classicos.h"
+#include "library.h"
 #include "pcm.h"
 #include "dsp_core.h"
 #include "playlist.h"
@@ -69,6 +70,7 @@ int main(int argc, char *argv[])
     dsp_init();
     sound_settings_apply();
     playlist_init();
+    library_init();
     audio_init();
     classicos_services_init();
 #ifndef USB_NONE
@@ -139,6 +141,7 @@ int main(void)
     dsp_init();
     sound_settings_apply();
     playlist_init();
+    library_init();
     audio_init();
     classicos_services_init();
 

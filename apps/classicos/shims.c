@@ -10,6 +10,7 @@
 #include "panic.h"
 #include "settings.h"
 #include "misc.h"
+#include "yesno.h"
 
 int get_radio_status(void) { return 0; }
 
@@ -194,11 +195,66 @@ unsigned int pcm_rec_status(void) { return 0; }
 #ifdef IPOD_ACCESSORY_PROTOCOL
 bool iap_record(bool onoff) { (void)onoff; return false; }
 #endif
-#ifdef HAVE_TAGCACHE
-bool tagcache_fill_tags(struct mp3entry *id3, const char *filename)
-{
-    (void)id3; (void)filename;
-    return false;
-}
-#endif
 void voice_thread_set_priority(int priority) { (void)priority; }
+
+/* From apps/misc.c; tagcache splits tagcache_scan_paths with it. */
+int split_string(char *str, const char split_char, char *vector[], const int vector_length)
+{
+    int i;
+    char sep[2] = {split_char, '\0'};
+    char *e, *p = strtok_r(str, sep, &e);
+
+    for (i = 0; i < vector_length; i++) {
+        vector[i] = p;
+        if (!p)
+            break;
+        p = strtok_r(NULL, sep, &e);
+    }
+    return i;
+}
+
+/* tagcache asks whether to finish a pending database commit on shutdown;
+ * there is no dialog, so take the default. */
+enum yesno_res gui_syncyesno_run_w_tmo(int ticks, enum yesno_res tmo_default_res,
+                                       const char *title,
+                                       const struct text_message *main_message,
+                                       const struct text_message *yes_message,
+                                       const struct text_message *no_message)
+{
+    (void)ticks; (void)title; (void)main_message; (void)yes_message; (void)no_message;
+    return tmo_default_res;
+}
+
+/* From apps/misc.c; tagcache reads its changelog with it. */
+int fast_readline(int fd, char *buf, int buf_size, void *parameters,
+                  int (*callback)(int n, char *buf, void *parameters))
+{
+    char *p, *next;
+    int rc, pos = 0;
+    int count = 0;
+
+    while (1) {
+        next = NULL;
+        rc = read(fd, &buf[pos], buf_size - pos - 1);
+        if (rc >= 0)
+            buf[pos + rc] = '\0';
+        if ((p = strchr(buf, '\n')) != NULL) {
+            *p = '\0';
+            next = ++p;
+        }
+        if ((p = strchr(buf, '\r')) != NULL) {
+            *p = '\0';
+            if (!next)
+                next = ++p;
+        }
+        rc = callback(count, buf, parameters);
+        if (rc < 0)
+            return rc;
+        count++;
+        if (!next)
+            break;
+        pos = buf_size - ((intptr_t)next - (intptr_t)buf) - 1;
+        memmove(buf, next, pos);
+    }
+    return 0;
+}

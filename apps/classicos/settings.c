@@ -172,6 +172,9 @@ void classicos_settings_init(void)
 #ifdef HAVE_CROSSFADE
     global_settings.crossfade = CROSSFADE_ENABLE_OFF;
 #endif
+    /* Music database: built from /Music, kept on disk in /.rockbox. */
+    strcpy(global_settings.tagcache_scan_paths, "/Music");
+    strcpy(global_settings.tagcache_db_path, ROCKBOX_DIR);
     display_settings_apply();
 }
 

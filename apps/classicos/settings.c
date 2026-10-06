@@ -11,6 +11,7 @@
 #include "backlight.h"
 #include "file.h"
 #include "ata_idle_notify.h"
+#include "misc.h"
 #include "settings_classicos.h"
 #ifdef HAVE_HARDWARE_CLICK
 #include "piezo.h"
@@ -25,7 +26,7 @@ static struct prefs {
     uint8_t version;
     uint8_t brightness;  /* MIN_BRIGHTNESS_SETTING..MAX_BRIGHTNESS_SETTING */
     int16_t backlight;   /* seconds, 0 = always on */
-    uint8_t clicker;     /* piezo click on wheel steps and presses */
+    uint8_t clicker;     /* CLICKER_* mask: click on wheel steps and presses */
 } prefs = { PREFS_VERSION, 28, 30, 1 };
 static bool prefs_dirty;
 
@@ -85,19 +86,30 @@ int classicos_clicker(void)
     return prefs.clicker;
 }
 
-int classicos_set_clicker(int on)
+int classicos_set_clicker(int mode)
 {
-    on = on != 0;
+    mode &= CLICKER_SPEAKER | CLICKER_HEADPHONES;
+    if (mode != prefs.clicker) {
 #if defined(HAVE_HARDWARE_CLICK) && !defined(SIMULATOR)
-    /* Turning it on beeps for 200 ms: confirms the piezo works. */
-    if (on && !prefs.clicker)
-        piezo_button_beep(true, true);
+        /* Turning the speaker on beeps for 200 ms: confirms the piezo works. */
+        if ((mode & ~prefs.clicker) & CLICKER_SPEAKER)
+            piezo_button_beep(true, true);
 #endif
-    if (on != prefs.clicker) {
-        prefs.clicker = on;
+        prefs.clicker = mode;
         prefs_changed();
     }
     return prefs.clicker;
+}
+
+void classicos_click(void)
+{
+#if defined(HAVE_HARDWARE_CLICK) && !defined(SIMULATOR)
+    if (prefs.clicker & CLICKER_SPEAKER)
+        piezo_button_beep(false, false);
+#endif
+    /* Rockbox's keyclick tone; it follows the volume like the music. */
+    if (prefs.clicker & CLICKER_HEADPHONES)
+        beep_play(4000, KEYCLICK_DURATION, 2500);
 }
 
 int classicos_set_brightness(int level)

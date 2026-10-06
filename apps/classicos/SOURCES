@@ -10,6 +10,7 @@ host.c
 ../rbcodec_helpers.c
 ../audio_thread.c
 ../pcmbuf.c
+../beep.c
 ../codec_thread.c
 ../playback.c
 ../codecs.c

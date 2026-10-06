@@ -44,7 +44,8 @@ export const [brightness, setBrightness] = createSignal<i32>(28);
 export const [brightnessMin, setBrightnessMin] = createSignal<i32>(1);
 export const [brightnessMax, setBrightnessMax] = createSignal<i32>(32);
 export const [backlight, setBacklight] = createSignal<i32>(30);
-export const [clicker, setClicker] = createSignal<boolean>(true);
+/** Clicker outputs: 0 off, 1 speaker, 2 headphones, 3 both */
+export const [clicker, setClicker] = createSignal<i32>(1);
 /** Settings > About, fetched when About opens */
 export const [version, setVersion] = createSignal<string>("");
 export const [diskMb, setDiskMb] = createSignal<i32>(0);
@@ -85,8 +86,8 @@ export async function poll(): Promise<void> {
     }
     if (clickerPending) {
       clickerPending = false;
-      const c = await system.setClicker(clicker() ? 1 : 0);
-      if (c.kind === "ok" && !clickerPending) setClicker(c.value !== 0);
+      const c = await system.setClicker(clicker());
+      if (c.kind === "ok" && !clickerPending) setClicker(c.value);
     }
     if (aboutWanted) {
       aboutWanted = false;
@@ -264,7 +265,7 @@ export const progressPx = createMemo<i32>(() => (durationMs() > 0 ? idiv(elapsed
 // the app drawer otherwise; Menu goes back one level. Back targets are fixed
 // until the library browser needs a stack.
 
-/** "now", "drawer", "music", "settings", "brightness", "backlight" or "about" */
+/** "now", "drawer", "music", "settings", "brightness", "backlight", "clicker" or "about" */
 export const [screen, setScreen] = createSignal<string>("drawer");
 
 /** Drawer apps, row-major in its 2x4 grid: Now Playing, Music, Settings */
@@ -350,7 +351,7 @@ export function musicWheel(delta: i32): void {
  * the drawer to Now Playing while something plays. */
 export function back(): void {
   const s = screen();
-  if (s === "brightness" || s === "backlight" || s === "about") go("settings");
+  if (s === "brightness" || s === "backlight" || s === "clicker" || s === "about") go("settings");
   else if (s !== "drawer") go("drawer");
   else if (hasTrack()) go("now");
 }
@@ -366,8 +367,8 @@ export const marqueeText = createMemo<string>(() => (screen() === "now" ? title(
 const MARQUEE_SLOT: i32 = 11;
 export const marqueeFits = createMemo<boolean>(() => marqueeWidth() <= TITLE_BOX);
 
-// Settings: Brightness (a level screen), Backlight (a picker), Clicker (a
-// switch), About.
+// Settings: Brightness (a level screen), Backlight and Clicker (pickers),
+// About.
 const SETTINGS_ITEMS: i32 = 4;
 export const [settingsIndex, setSettingsIndex] = createSignal<i32>(0);
 /** Picker cursor on the Backlight page */
@@ -375,6 +376,9 @@ export const [backlightIndex, setBacklightIndex] = createSignal<i32>(0);
 /** Backlight picker options in s, 0 = always on, and their labels */
 const BACKLIGHT_SECONDS: i32[] = [10, 30, 60, 0];
 const BACKLIGHT_LABELS: string[] = ["10 s", "30 s", "1 min", "Always"];
+/** Clicker picker rows (Picker labels in app.tsx); the row index is the mode */
+const CLICKER_ROWS: string[] = ["Off", "Speaker", "Headphones", "Both"];
+export const [clickerIndex, setClickerIndex] = createSignal<i32>(0);
 /** Brightness level bar width, px */
 const BRIGHTNESS_BAR: i32 = 220;
 let brightnessPending: boolean = false;
@@ -393,9 +397,8 @@ export function settingsSelect(): void {
     setBacklightIndex(backlightOption());
     go("backlight");
   } else if (settingsIndex() === 2) {
-    setClicker(!clicker());
-    clickerPending = true;
-    go("settings");
+    setClickerIndex(clicker());
+    go("clicker");
   } else {
     aboutWanted = true;
     go("about");
@@ -420,6 +423,19 @@ export function backlightSelect(): void {
   backlightPending = true;
   go("settings");
 }
+
+export function clickerWheel(delta: i32): void {
+  setClickerIndex(step(clickerIndex(), delta, len(CLICKER_ROWS)));
+  go("clicker");
+}
+
+export function clickerSelect(): void {
+  setClicker(clickerIndex());
+  clickerPending = true;
+  go("settings");
+}
+
+export const clickerLabel = createMemo<string>(() => CLICKER_ROWS[clicker()]);
 
 /** Picker row of the current timeout, -1 for a value not in the list */
 export const backlightOption = createMemo<i32>(() => {

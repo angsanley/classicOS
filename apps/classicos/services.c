@@ -158,9 +158,9 @@ void pocketjs_host_system(struct pocketjs_system *out)
     out->clicker = classicos_clicker();
 }
 
-int32_t pocketjs_host_set_clicker(int32_t on)
+int32_t pocketjs_host_set_clicker(int32_t mode)
 {
-    return classicos_set_clicker(on);
+    return classicos_set_clicker(mode);
 }
 
 int32_t pocketjs_host_set_brightness(int32_t level)

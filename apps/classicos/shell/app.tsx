@@ -12,7 +12,7 @@ import { ActionHandler, AxisHandler, Image, Text, View } from "@pocketjs/framewo
 import { BTN } from "@pocketjs/framework/input";
 import { onMount } from "@pocketjs/framework/solid/lifecycle";
 import {
-  available, back, backlightIndex, backlightLabel, backlightOption, backlightSelect, backlightWheel,
+  available, back, backlightIndex, backlightLabel, backlightOption, backlightSelect, backlightWheel, clickerIndex, clickerLabel, clickerSelect, clickerWheel,
   batteryText, brightnessPx, clicker, plugged, brightnessWheel, capacity, settingsIndex, settingsSelect, settingsWheel, version,
   album, art, artistAlbum, date, hold, artBottom, artTop, artist, badge, batteryPx, date, elapsed, hasTrack,
   drawerIndex, drawerSelect, drawerWheel, musicIndex, musicScroll, musicSelect, musicWheel, openDrawer, poll, progressPx,
@@ -23,7 +23,7 @@ import Drawer from "./Drawer.tsx";
 import Hold from "./Hold.tsx";
 import Music from "./Music.tsx";
 import About from "./About.tsx";
-import Backlight from "./Backlight.tsx";
+import Picker from "./Picker.tsx";
 import Brightness from "./Brightness.tsx";
 import Settings from "./Settings.tsx";
 import StatusBar from "./StatusBar.tsx";
@@ -56,7 +56,7 @@ export default function Shell() {
       </Match>
       <Match when={screen() === "settings"}>
         <Settings
-          selected={settingsIndex()} backlight={backlightLabel()} clicker={clicker()}
+          selected={settingsIndex()} backlight={backlightLabel()} clicker={clickerLabel()}
           status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
           onWheel={(delta) => settingsWheel(delta)} onSelect={() => settingsSelect()} onBack={() => back()}
         />
@@ -69,10 +69,19 @@ export default function Shell() {
         />
       </Match>
       <Match when={screen() === "backlight"}>
-        <Backlight
+        <Picker
+          title="Backlight" label0="10 seconds" label1="30 seconds" label2="1 minute" label3="Always On"
           selected={backlightIndex()} current={backlightOption()}
           status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
           onWheel={(delta) => backlightWheel(delta)} onSelect={() => backlightSelect()} onBack={() => back()}
+        />
+      </Match>
+      <Match when={screen() === "clicker"}>
+        <Picker
+          title="Clicker" label0="Off" label1="Speaker" label2="Headphones" label3="Both"
+          selected={clickerIndex()} current={clicker()}
+          status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
+          onWheel={(delta) => clickerWheel(delta)} onSelect={() => clickerSelect()} onBack={() => back()}
         />
       </Match>
       <Match when={screen() === "about"}>

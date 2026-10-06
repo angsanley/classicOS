@@ -20,7 +20,6 @@
 #include "settings_classicos.h"
 #include "backlight.h"
 #ifdef HAVE_HARDWARE_CLICK
-#include "piezo.h"
 #endif
 
 #define DATA_DIR ROCKBOX_DIR "/classicos"
@@ -155,14 +154,6 @@ static void draw_hud(struct perf *perf, bool boosted)
 #define HUD_H 0
 #endif
 
-/* The classic iPod click, on the piezo: one per wheel step and per press. */
-static void click(void)
-{
-#if defined(HAVE_HARDWARE_CLICK) && !defined(SIMULATOR)
-    if (classicos_clicker())
-        piezo_button_beep(false, false);
-#endif
-}
 
 static void usb_mode(void)
 {
@@ -240,7 +231,7 @@ void classicos_host_run(void)
              * repeats stay silent. */
             if (!(b & (SYS_EVENT | BUTTON_REL)) &&
                 (!(b & BUTTON_REPEAT) || (b & (BUTTON_SCROLL_FWD | BUTTON_SCROLL_BACK))))
-                click();
+                classicos_click();
         }
 
 #ifdef HAS_BUTTON_HOLD

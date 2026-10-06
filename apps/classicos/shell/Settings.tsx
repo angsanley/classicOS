@@ -1,17 +1,16 @@
-// Settings: Brightness, Backlight, Clicker and About. Select opens a row or
-// flips Clicker; Menu goes back to the drawer.
+// Settings: Brightness, Backlight, Clicker and About. Select opens a row;
+// Menu goes back to the drawer.
 
 import { ActionHandler, AxisHandler, Image, View } from "@pocketjs/framework/solid/components";
 import { BTN } from "@pocketjs/framework/input";
 import type { i32 } from "@pocketjs/framework/solid/std";
 import MenuRow from "./MenuRow.tsx";
 import StatusBar from "./StatusBar.tsx";
-import Toggle from "./Toggle.tsx";
 
 export default function Settings(props: {
   selected: i32;
   backlight: string;
-  clicker: boolean;
+  clicker: string;
   status: string;
   time: string;
   batteryPx: i32;
@@ -37,7 +36,7 @@ export default function Settings(props: {
             <Image src="icons/tile_backlight.svg" class="w-[16] h-[16]" />
           </View>
         </MenuRow>
-        <MenuRow selected={props.selected} index={2} label="Clicker" subtitle="" subtitleFits subtitleOffset={0} value="" trailing={<Toggle on={props.clicker} />}>
+        <MenuRow selected={props.selected} index={2} label="Clicker" subtitle="" subtitleFits subtitleOffset={0} value={props.clicker}>
           <View class="w-[28] h-[28] rounded-full bg-[#ff2d55] items-center justify-center">
             <Image src="icons/speaker_2_fill.svg" class="w-[16] h-[16]" />
           </View>

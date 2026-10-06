@@ -186,7 +186,9 @@ int library_load(void)
 
 int library_count(void)
 {
-    return tc.filesindir - specials + kept_count;
+    /* A failed load (filesindir 0) still counted its specials */
+    int n = tc.filesindir - specials + kept_count;
+    return n > 0 ? n : 0;
 }
 
 bool library_tracks(void)

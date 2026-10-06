@@ -259,6 +259,8 @@ pub unsafe extern "C" fn pocketjs_frame(
         #[cfg(feature = "services")]
         services::serve(app.ui_mut());
     }
+    #[cfg(feature = "services")]
+    services::bind_art(app.ui_mut());
     let t1 = pocketjs_host_usec();
     let core = app.ui_mut().core_mut();
     core.draw();

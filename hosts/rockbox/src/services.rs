@@ -156,6 +156,8 @@ struct Art {
     colors: (String, String),
     /// Node id from the last tree search, revalidated by name each frame
     art_node: NodeId,
+    /// Frames since the last tree search that found no AlbumArt node
+    misses: u8,
 }
 static mut ART: Art = Art {
     handle: -1,
@@ -165,6 +167,7 @@ static mut ART: Art = Art {
     name: String::new(),
     colors: (String::new(), String::new()),
     art_node: NodeId::NONE,
+    misses: 0,
 };
 
 /// MicroTS <Image src> must be a literal, so the app renders a placeholder
@@ -189,13 +192,21 @@ fn named(ui: &Ui, cache: &mut NodeId, name: &str) -> Option<NodeId> {
     (*cache != NodeId::NONE).then_some(*cache)
 }
 
-/// Binds the art texture to the AlbumArt node every frame: set_image is a
-/// field write, and a remounted screen can reuse the node id.
+/// Binds the art texture to the AlbumArt node, once per frame: set_image is
+/// a field write, and a remounted screen can reuse the node id. Screens
+/// without art would walk the whole tree each frame, so a missing node is
+/// searched for every 4th frame (at most ~100 ms late on Now Playing).
 pub fn bind_art(ui: &mut Ui) {
     // SAFETY: the UI thread is the only user of ART.
     let art = unsafe { &mut *core::ptr::addr_of_mut!(ART) };
     if art.texture < 0 {
         return;
+    }
+    if art.art_node == NodeId::NONE {
+        art.misses = art.misses.wrapping_add(1);
+        if art.misses % 4 != 0 {
+            return;
+        }
     }
     let image = named(ui, &mut art.art_node, ART_NODE)
         .and_then(|view| ui.core().node_children(view.0).first().map(|&child| NodeId(child)));
@@ -473,5 +484,4 @@ pub fn serve(ui: &mut Ui) {
         };
         ui.queue_model_delivery(Delivery { request: r.request, result: Completion::Value(value) });
     }
-    bind_art(ui);
 }

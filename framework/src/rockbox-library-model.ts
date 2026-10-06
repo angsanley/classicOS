@@ -15,12 +15,17 @@ export type LevelResult =
       selected: i32;
       /** enter() picked a song: its list now plays from it */
       playing: boolean;
+      /** Rows are songs (Select plays) rather than lists to open */
+      tracks: boolean;
+      /** Song rows with an artist line: `subs` carries it */
+      twoLine: boolean;
     }
   /** The database is still building, or there is none */
   | { kind: "unavailable" } | { kind: "busy" } | { kind: "malformed" };
 
 export type RowsResult =
-  | { kind: "ok"; first: i32; rows: string[] }
+  /** rows: names (song titles); subs: each song's artist, "" otherwise */
+  | { kind: "ok"; first: i32; rows: string[]; subs: string[] }
   | { kind: "unavailable" } | { kind: "busy" } | { kind: "malformed" };
 
 const MODULE = "@pocketjs/framework/rockbox/library/model";
@@ -29,9 +34,10 @@ function level(call: string, args: i32[]): PromiseLike<LevelResult> {
   return { kind: "service", service: MODULE, call, args } as unknown as PromiseLike<LevelResult>;
 }
 
-/** Up to 6 row names from `first` */
-function rows(first: i32): PromiseLike<RowsResult> {
-  return { kind: "service", service: MODULE, call: "rows", args: [first] } as unknown as PromiseLike<RowsResult>;
+/** Up to 6 row names from `first`, each cut to `width` px (text-base) with
+ * a trailing "…" when longer */
+function rows(first: i32, width: i32): PromiseLike<RowsResult> {
+  return { kind: "service", service: MODULE, call: "rows", args: [first, width] } as unknown as PromiseLike<RowsResult>;
 }
 
 export const library = {

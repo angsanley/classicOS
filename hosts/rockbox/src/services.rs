@@ -63,6 +63,8 @@ struct Library {
     depth: i32,
     selected: i32,
     playing: i32,
+    tracks: i32,
+    two_line: i32,
     title: [u8; 128],
 }
 
@@ -348,6 +350,29 @@ fn about() -> Value {
 
 /// Rows per `rows` call: a screenful and then some
 const LIBRARY_ROWS: i32 = 6;
+/// Font slots of library rows: text-base and text-xs regular (16 and 12 px,
+/// see fontSlotFor in framework/compiler/tailwind.ts)
+const ROW_FONT_SLOT: u8 = 2;
+const SUBTITLE_FONT_SLOT: u8 = 0;
+
+/// `s` cut to fit `max` px in `slot` with a trailing "…", like iOS tail
+/// truncation; unchanged when it fits.
+fn fit(ui: &Ui, s: &str, slot: u8, max: i32) -> String {
+    let width = |t: &str| ui.core().measure_text(t, slot) as i32;
+    if max <= 0 || width(s) <= max {
+        return String::from(s);
+    }
+    let mut out = String::new();
+    for (i, _) in s.char_indices().rev() {
+        out.clear();
+        out.push_str(s[..i].trim_end());
+        out.push('…');
+        if width(&out) <= max {
+            return out;
+        }
+    }
+    String::from("…")
+}
 
 fn library(op: i32, arg: i32) -> Value {
     // SAFETY: plain-old-data struct; C fills every field.
@@ -363,19 +388,29 @@ fn library(op: i32, arg: i32) -> Value {
         ("depth", Value::I32(l.depth)),
         ("selected", Value::I32(l.selected)),
         ("playing", Value::Bool(l.playing != 0)),
+        ("tracks", Value::Bool(l.tracks != 0)),
+        ("twoLine", Value::Bool(l.two_line != 0)),
     ])
 }
 
-fn library_rows(first: i32) -> Value {
+fn library_rows(ui: &Ui, first: i32, width: i32) -> Value {
     let mut buf = [0u8; 128];
-    let rows = (first.max(0)..first.max(0) + LIBRARY_ROWS)
-        .map(|i| {
-            // SAFETY: C writes at most buf.len() bytes, NUL-terminated.
-            unsafe { pocketjs_host_library_row(i, buf.as_mut_ptr(), buf.len() as i32) };
-            text(&buf)
-        })
-        .collect();
-    object(vec![("kind", string("ok")), ("first", Value::I32(first)), ("rows", Value::Array(rows))])
+    let (mut rows, mut subs) = (Vec::new(), Vec::new());
+    for i in first.max(0)..first.max(0) + LIBRARY_ROWS {
+        // SAFETY: C writes at most buf.len() bytes, NUL-terminated.
+        unsafe { pocketjs_host_library_row(i, buf.as_mut_ptr(), buf.len() as i32) };
+        // Song rows are title, unit separator (0x1F), artist
+        // (tagnavi_user.config): two lines.
+        let (title, sub) = cstr(&buf).split_once('\u{1f}').unwrap_or((cstr(&buf), ""));
+        rows.push(Value::String(fit(ui, title, ROW_FONT_SLOT, width)));
+        subs.push(Value::String(fit(ui, sub, SUBTITLE_FONT_SLOT, width)));
+    }
+    object(vec![
+        ("kind", string("ok")),
+        ("first", Value::I32(first)),
+        ("rows", Value::Array(rows)),
+        ("subs", Value::Array(subs)),
+    ])
 }
 
 /// `{kind: "ok", value}` from a host setter that returns the applied value
@@ -408,8 +443,8 @@ pub fn serve(ui: &mut Ui) {
             },
             (LIBRARY, "back") => library(2, 0),
             (LIBRARY, "update") => library(3, 0),
-            (LIBRARY, "rows") => match r.args.first() {
-                Some(Value::I32(first)) => library_rows(*first),
+            (LIBRARY, "rows") => match (r.args.first(), r.args.get(1)) {
+                (Some(Value::I32(first)), Some(Value::I32(width))) => library_rows(ui, *first, *width),
                 _ => object(vec![("kind", string("malformed"))]),
             },
             (SYSTEM, "snapshot") => system(),

@@ -71,6 +71,7 @@ struct About {
     version: [u8; 32],
     disk_mb: i32,
     free_mb: i32,
+    songs: i32,
 }
 
 extern "C" {
@@ -341,6 +342,7 @@ fn about() -> Value {
         ("version", text(&a.version)),
         ("diskMb", Value::I32(a.disk_mb)),
         ("freeMb", Value::I32(a.free_mb)),
+        ("songs", Value::I32(a.songs)),
     ])
 }
 

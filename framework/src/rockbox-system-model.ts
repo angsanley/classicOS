@@ -34,7 +34,7 @@ const call = (name: string): PromiseLike<SystemResult> =>
   ({ kind: "service", service: MODULE, call: name, args: [] }) as unknown as PromiseLike<SystemResult>;
 
 export type AboutResult =
-  | { kind: "ok"; version: string; diskMb: i32; freeMb: i32 }
+  | { kind: "ok"; version: string; diskMb: i32; freeMb: i32; /** Tracks in the music database, -1 while it is not ready */ songs: i32 }
   | { kind: "unavailable" } | { kind: "busy" } | { kind: "malformed" };
 
 /** A setting as applied (clamped) by the host */

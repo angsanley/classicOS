@@ -90,11 +90,6 @@ int classicos_set_clicker(int mode)
 {
     mode &= CLICKER_SPEAKER | CLICKER_HEADPHONES;
     if (mode != prefs.clicker) {
-#if defined(HAVE_HARDWARE_CLICK) && !defined(SIMULATOR)
-        /* Turning the speaker on beeps for 200 ms: confirms the piezo works. */
-        if ((mode & ~prefs.clicker) & CLICKER_SPEAKER)
-            piezo_button_beep(true, true);
-#endif
         prefs.clicker = mode;
         prefs_changed();
     }

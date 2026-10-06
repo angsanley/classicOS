@@ -150,7 +150,6 @@ void splash_progress(int current, int total, const char *fmt, ...)
     (void)current; (void)total; (void)fmt;
 }
 bool yesno_pop(const char *text) { (void)text; return false; }
-void status_save(bool force) { (void)force; }
 void wps_playlist_percent_prepare(void) {}
 
 unsigned int ab_B_marker; /* AB_MARKER_NONE */

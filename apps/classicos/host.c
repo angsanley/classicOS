@@ -18,6 +18,9 @@
 #include "media.h"
 #include "core_alloc.h"
 #include "settings_classicos.h"
+#include "audio.h"
+#include "playlist.h"
+#include "tagcache.h"
 #include "backlight.h"
 #ifdef HAVE_HARDWARE_CLICK
 #endif
@@ -155,12 +158,22 @@ static void draw_hud(struct perf *perf, bool boosted)
 #endif
 
 
+/* From apps/misc.c clean_shutdown() and system_flush(): stopping playback
+ * saves the resume position (playlist.c), then the playlist and settings
+ * go to disk. */
+static void save_state(void)
+{
+    audio_stop();
+    playlist_shutdown();
+    classicos_settings_flush();
+}
+
 static void usb_mode(void)
 {
     lcd_clear_display();
     lcd_putsxy(8, 8, "USB connected");
     lcd_update();
-    classicos_settings_flush();
+    save_state();
     usb_acknowledge(SYS_USB_CONNECTED_ACK, button_get_data());
     while (button_get(true) != SYS_USB_DISCONNECTED)
         ;
@@ -207,8 +220,11 @@ void classicos_host_run(void)
             if (b == SYS_USB_CONNECTED)
                 usb_mode();
             else if (b == SYS_POWEROFF) {
-                classicos_settings_flush();
-                shutdown_hw(SHUTDOWN_POWER_OFF);
+                /* A database commit in progress cancels it (apps/misc.c). */
+                if (tagcache_prepare_shutdown()) {
+                    save_state();
+                    shutdown_hw(SHUTDOWN_POWER_OFF);
+                }
             }
             else if (b == BUTTON_PLAY)
                 play_down = frame_start;

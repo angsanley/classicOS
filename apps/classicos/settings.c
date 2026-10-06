@@ -30,6 +30,11 @@ static struct prefs {
 } prefs = { PREFS_VERSION, 28, 30, 1 };
 static bool prefs_dirty;
 
+/* global_status (resume position, volume), Rockbox's resume info. playlist.c
+ * keeps it current and calls status_save(); stored whole, size-checked. */
+#define STATUS_FILE ROCKBOX_DIR "/classicos/status.bin"
+static bool status_dirty;
+
 struct user_settings global_settings;
 struct system_status global_status;
 
@@ -66,9 +71,44 @@ static void prefs_changed(void)
     register_storage_idle_func(prefs_save);
 }
 
+static void status_load(void)
+{
+    struct system_status saved;
+    int fd = open(STATUS_FILE, O_RDONLY);
+    if (fd < 0)
+        return;
+    if (read(fd, &saved, sizeof(saved)) == sizeof(saved))
+        global_status = saved;
+    close(fd);
+}
+
+static void status_write(void)
+{
+    int fd;
+    if (!status_dirty)
+        return;
+    status_dirty = false;
+    fd = open(STATUS_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (fd < 0)
+        return;
+    write(fd, &global_status, sizeof(global_status));
+    close(fd);
+}
+
+/* As apps/settings.c: written when the disk next idles, or now if forced. */
+void status_save(bool force)
+{
+    status_dirty = true;
+    if (force)
+        status_write();
+    else
+        register_storage_idle_func(status_write);
+}
+
 void classicos_settings_flush(void)
 {
     prefs_save();
+    status_write();
 }
 
 int classicos_brightness(void)
@@ -154,6 +194,7 @@ void classicos_settings_init(void)
     memset(&global_status, 0, sizeof(global_status));
     global_status.volume = -25;
     global_status.resume_index = -1;
+    status_load();
     global_settings.stereo_width = 100;
     global_settings.repeat_mode = REPEAT_OFF;
     global_settings.single_mode = SINGLE_MODE_OFF;

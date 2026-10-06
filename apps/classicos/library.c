@@ -5,6 +5,7 @@
 #include "config.h"
 #include <string.h>
 #include "file.h"
+#include "kernel.h"
 #include "string-extra.h"
 #include "core_alloc.h"
 #include "settings.h"
@@ -115,16 +116,28 @@ static void library_mem_init(void)
             core_alloc_ex(cache->max_entries*(sizeof(struct entry)), &ops);
 }
 
+/* Builds the database in the background, once per boot. A finished scan
+ * waits in database_tmp.tcd until tagcache can borrow RAM to commit it
+ * (right away on the iPod; the sim, without dircache, at the next boot).
+ * no auto-rescan; new music needs an Update Library action. */
+static bool build_requested;
+
+static void build(void)
+{
+    build_requested = true;
+    tagcache_rebuild();
+}
+
 void library_init(void)
 {
     tagcache_init();
-    /* First boot (or after a wipe): build the database in the background.
-     * A scan left in database_tmp.tcd is committed by tagcache at boot; the
-     * sim (no dircache to borrow RAM from) always defers it to then.
-     * no auto-rescan; new music needs an Update Library action. */
+    /* As apps/main.c init_tagcache(): let tagcache finish starting up (and
+     * commit a pending scan) before tagtree takes its RAM. */
+    while (!tagcache_is_initialized())
+        sleep(HZ/4);
     if (!file_exists(ROCKBOX_DIR "/database_idx.tcd") &&
         !file_exists(ROCKBOX_DIR "/database_tmp.tcd"))
-        tagcache_rebuild();
+        build();
     library_mem_init();
     tagtree_init();
 }
@@ -140,8 +153,14 @@ int library_open(void)
 
 int library_load(void)
 {
-    if (!tagcache_is_usable())
+    if (!tagcache_is_usable()) {
+        /* No database and nothing pending, e.g. tagcache dropped a broken
+         * scan at boot: start one. */
+        if (!build_requested && tagcache_get_stat()->initialized &&
+            !file_exists(ROCKBOX_DIR "/database_tmp.tcd"))
+            build();
         return -1;
+    }
     int rc = tagtree_load(&tc);
     map_specials();
     return rc;

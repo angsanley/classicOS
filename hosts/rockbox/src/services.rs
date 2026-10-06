@@ -67,7 +67,7 @@ extern "C" {
     fn pocketjs_host_about(out: *mut About);
     fn pocketjs_host_set_brightness(level: i32) -> i32;
     fn pocketjs_host_set_backlight(seconds: i32) -> i32;
-    fn pocketjs_host_set_clicker(on: i32) -> i32;
+    fn pocketjs_host_set_clicker(mode: i32) -> i32;
     /// Applies a volume in dB, clamped to the codec range; returns the result.
     fn pocketjs_host_set_volume(db: i32) -> i32;
     /// Current track's album art as Rockbox RGB565 (row stride = width).
@@ -311,7 +311,7 @@ fn system() -> Value {
         ("brightnessMin", Value::I32(s.brightness_min)),
         ("brightnessMax", Value::I32(s.brightness_max)),
         ("backlight", Value::I32(s.backlight)),
-        ("clicker", Value::Bool(s.clicker != 0)),
+        ("clicker", Value::I32(s.clicker)),
     ])
 }
 

@@ -23,8 +23,9 @@ export type SystemResult =
       brightnessMin: i32;
       brightnessMax: i32;
       backlight: i32;
-      /** Piezo click on wheel steps and presses */
-      clicker: boolean;
+      /** Click on wheel steps and presses: bit 1 = speaker (piezo),
+       * bit 2 = headphones (mixed into the audio) */
+      clicker: i32;
     }
   | { kind: "unavailable" } | { kind: "busy" } | { kind: "malformed" };
 
@@ -53,9 +54,9 @@ function setBacklight(seconds: i32): PromiseLike<SetResult> {
   return { kind: "service", service: MODULE, call: "setBacklight", args: [seconds] } as unknown as PromiseLike<SetResult>;
 }
 
-/** Turns the piezo clicker on (1) or off (0); saved like brightness. */
-function setClicker(on: i32): PromiseLike<SetResult> {
-  return { kind: "service", service: MODULE, call: "setClicker", args: [on] } as unknown as PromiseLike<SetResult>;
+/** Sets the clicker outputs (0 off, 1 speaker, 2 headphones, 3 both); saved like brightness. */
+function setClicker(mode: i32): PromiseLike<SetResult> {
+  return { kind: "service", service: MODULE, call: "setClicker", args: [mode] } as unknown as PromiseLike<SetResult>;
 }
 
 export type MeasureResult =

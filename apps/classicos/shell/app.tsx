@@ -12,7 +12,7 @@ import { ActionHandler, AxisHandler, Image, Text, View } from "@pocketjs/framewo
 import { BTN } from "@pocketjs/framework/input";
 import { onMount } from "@pocketjs/framework/solid/lifecycle";
 import {
-  available, back, backlightIndex, backlightLabel, backlightOption, backlightSelect, backlightWheel, libraryCount, libraryFirst, libraryIndex, libraryLoading, libraryReady, libraryRows, libraryScroll, librarySelect, libraryTitle, libraryWheel, spinnerFrame, clickerIndex, clickerLabel, clickerSelect, clickerWheel,
+  available, back, backlightIndex, backlightLabel, backlightOption, backlightSelect, backlightWheel, libraryCount, libraryFirst, libraryIndex, libraryLoading, libraryReady, libraryRows, libraryScroll, librarySelect, libraryTitle, libraryWheel, spinnerFrame, updateStarted, settingsScroll, clickerIndex, clickerLabel, clickerSelect, clickerWheel,
   batteryText, brightnessPx, clicker, plugged, brightnessWheel, capacity, settingsIndex, settingsSelect, settingsWheel, version,
   album, art, artistAlbum, date, hold, artBottom, artTop, artist, badge, batteryPx, date, elapsed, hasTrack,
   drawerIndex, drawerSelect, drawerWheel, musicIndex, musicScroll, musicSelect, musicWheel, openDrawer, poll, progressPx,
@@ -65,7 +65,7 @@ export default function Shell() {
       </Match>
       <Match when={screen() === "settings"}>
         <Settings
-          selected={settingsIndex()} backlight={backlightLabel()} clicker={clickerLabel()}
+          selected={settingsIndex()} scroll={settingsScroll()} backlight={backlightLabel()} clicker={clickerLabel()} updating={updateStarted()}
           status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
           onWheel={(delta) => settingsWheel(delta)} onSelect={() => settingsSelect()} onBack={() => back()}
         />

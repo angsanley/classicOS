@@ -90,6 +90,12 @@ export async function poll(): Promise<void> {
       const c = await system.setClicker(clicker());
       if (c.kind === "ok" && !clickerPending) setClicker(c.value);
     }
+    if (updateWanted) {
+      updateWanted = false;
+      const u = await library.update();
+      // A finished scan changes the lists; reload the open one on return.
+      if (u.kind === "ok") rowsLoaded = -1;
+    }
     if (aboutWanted) {
       aboutWanted = false;
       const a = await system.about();
@@ -313,7 +319,10 @@ function open(to: string): void {
   if (to === "music") {
     setMusicIndex(0);
     setMusicScroll(0);
-  } else if (to === "settings") setSettingsIndex(0);
+  } else if (to === "settings") {
+    setSettingsIndex(0);
+    setSettingsScroll(0);
+  }
   go(to);
 }
 
@@ -492,9 +501,10 @@ const MARQUEE_SLOT: i32 = 11;
 export const marqueeFits = createMemo<boolean>(() => marqueeWidth() <= TITLE_BOX);
 
 // Settings: Brightness (a level screen), Backlight and Clicker (pickers),
-// About.
-const SETTINGS_ITEMS: i32 = 4;
+// Update Library (an action), About.
+const SETTINGS_ITEMS: i32 = 5;
 export const [settingsIndex, setSettingsIndex] = createSignal<i32>(0);
+export const [settingsScroll, setSettingsScroll] = createSignal<i32>(0);
 /** Picker cursor on the Backlight page */
 export const [backlightIndex, setBacklightIndex] = createSignal<i32>(0);
 /** Backlight picker options in s, 0 = always on, and their labels */
@@ -509,9 +519,20 @@ let brightnessPending: boolean = false;
 let backlightPending: boolean = false;
 let clickerPending: boolean = false;
 let aboutWanted: boolean = false;
+let updateWanted: boolean = false;
+/** Update Library was just started: its row says so for a few seconds,
+ * as Rockbox's Update Now splash does */
+export const [updateStarted, setUpdateStarted] = createSignal<boolean>(false);
+
+async function updateNotice(): Promise<void> {
+  setUpdateStarted(true);
+  await after(3000);
+  setUpdateStarted(false);
+}
 
 export function settingsWheel(delta: i32): void {
   setSettingsIndex(step(settingsIndex(), delta, SETTINGS_ITEMS));
+  setSettingsScroll(scrollTo(settingsIndex(), settingsScroll()));
   go("settings");
 }
 
@@ -523,6 +544,11 @@ export function settingsSelect(): void {
   } else if (settingsIndex() === 2) {
     setClickerIndex(clicker());
     go("clicker");
+  } else if (settingsIndex() === 3) {
+    updateWanted = true;
+    cancel(updateNotice);
+    updateNotice();
+    go("settings");
   } else {
     aboutWanted = true;
     go("about");

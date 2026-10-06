@@ -225,3 +225,13 @@ bool library_back(void)
     library_load();
     return true;
 }
+
+/* As Rockbox's Database > Update Now: new and removed files, in the
+ * background. Without a database yet, build one. */
+void library_update(void)
+{
+    if (tagcache_is_usable())
+        tagcache_update();
+    else if (!build_requested)
+        build();
+}

@@ -23,3 +23,5 @@ enum { LIBRARY_STAYED, LIBRARY_ENTERED, LIBRARY_PLAYING };
 int library_enter(int index);
 /** Up one level; false at the top menu */
 bool library_back(void);
+/** Rescans the music folder in the background */
+void library_update(void);

@@ -241,8 +241,10 @@ void pocketjs_host_library(int32_t op, int32_t arg, struct pocketjs_library *out
         rc = library_open();
     else if (op == 1)
         result = library_enter(arg);
-    else
+    else if (op == 2)
         library_back();
+    else
+        library_update();
     out->count = rc < 0 ? -1 : library_count();
     out->depth = library_depth();
     out->selected = library_selected();

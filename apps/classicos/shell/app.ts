@@ -288,7 +288,7 @@ export const progressPx = createMemo<i32>(() => (durationMs() > 0 ? idiv(elapsed
 // the app drawer otherwise; Menu goes back one level. Back targets are fixed
 // until the library browser needs a stack.
 
-/** "now", "drawer", "music", "library", "settings", "brightness", "backlight", "clicker" or "about" */
+/** "now", "notplaying", "drawer", "music", "library", "settings", "brightness", "backlight", "clicker" or "about" */
 export const [screen, setScreen] = createSignal<string>("drawer");
 
 /** Drawer apps, row-major in its 2x4 grid: Now Playing, Music, Settings */
@@ -309,7 +309,8 @@ const IDLE_RETURN_MS: i32 = 30000;
 
 async function idleReturn(): Promise<void> {
   await after(IDLE_RETURN_MS);
-  if (hasTrack()) setScreen("now");
+  // Only while it plays: a song paused at boot doesn't take over.
+  if (status() === "playing") setScreen("now");
 }
 
 function go(to: string): void {
@@ -449,16 +450,15 @@ export function drawerWheel(delta: i32): void {
 }
 
 export function drawerSelect(): void {
-  // Now Playing with nothing loaded does nothing; an empty
-  // "Not Playing" state can come later.
-  if (drawerIndex() === 0) {
-    if (hasTrack()) go("now");
-  } else open(drawerIndex() === 1 ? "music" : "settings");
+  if (drawerIndex() === 0) go(hasTrack() ? "now" : "notplaying");
+  else open(drawerIndex() === 1 ? "music" : "settings");
 }
 
 /** Leaves Now Playing for the drawer once the queue ends. Called per poll. */
 function leaveStoppedNowPlaying(): void {
   if (screen() === "now" && !hasTrack()) go("drawer");
+  // Play pressed on Not Playing: show what started
+  if (screen() === "notplaying" && hasTrack()) go("now");
 }
 
 export function musicWheel(delta: i32): void {

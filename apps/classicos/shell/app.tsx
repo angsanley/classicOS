@@ -23,6 +23,7 @@ import Drawer from "./Drawer.tsx";
 import Hold from "./Hold.tsx";
 import Music from "./Music.tsx";
 import Library from "./Library.tsx";
+import NotPlaying from "./NotPlaying.tsx";
 import About from "./About.tsx";
 import Picker from "./Picker.tsx";
 import Brightness from "./Brightness.tsx";
@@ -100,6 +101,9 @@ export default function Shell() {
           status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
           onWheel={(delta) => aboutWheel(delta)} onBack={() => back()}
         />
+      </Match>
+      <Match when={screen() === "notplaying"}>
+        <NotPlaying status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()} onBack={() => back()} />
       </Match>
       <Match when={screen() === "now"}>
         <View

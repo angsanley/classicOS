@@ -3,3 +3,4 @@
 /runtime/node_modules/
 /system/apps/classicos/
 .DS_Store
+/.vscode/

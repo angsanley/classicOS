@@ -1256,6 +1256,44 @@ fn tex_tri<T: RenderTarget>(
 // ---- TEX_QUAD: textured rect (nearest, or integer bilinear when the texture
 //      carries the linear flag) --------------------------------------------------------
 
+// Native-size icons and atlas regions need no floating-point pixel sampling.
+// Other scales and fractional UV endpoints retain the original sampling path.
+fn native_texture_axis(start: f32, end: f32, tex_size: u32, len: i32) -> Option<(i32, i32)> {
+    let start = start * tex_size as f32;
+    let end = end * tex_size as f32;
+    let origin = start as i32;
+    if !(0.0..=32000.0).contains(&start) || origin as f32 != start {
+        return None;
+    }
+    if end - start == len as f32 {
+        Some((origin, 1))
+    } else if start - end == len as f32 {
+        Some((origin - 1, -1))
+    } else {
+        None
+    }
+}
+
+// Verify non-power-of-two native regions once per axis, rather than doing
+// bilinear coordinate math and four texel reads for every destination pixel.
+fn native_linear_axis(start: f32, end: f32, tex_size: u32, len: i32, axis: (i32, i32)) -> bool {
+    if (len as u32).is_power_of_two() && tex_size.is_power_of_two() {
+        return true;
+    }
+    let inv = 1.0f32 / len as f32;
+    for pixel in 0..len {
+        let uv = start + (end - start) * (pixel as f32 + 0.5) * inv;
+        let Some(sample) = linear_sample_coordinates(tex_size, 1, uv, 0.5) else {
+            return false;
+        };
+        let expected = (axis.0 + pixel * axis.1).clamp(0, tex_size as i32 - 1) as u32;
+        if sample.fx != 0 || sample.x0 != expected {
+            return false;
+        }
+    }
+    true
+}
+
 fn tex_quad<T: RenderTarget>(
     ui: &impl RenderResources,
     target: &mut T,
@@ -1291,19 +1329,41 @@ fn tex_quad<T: RenderTarget>(
     let identity = modulate == 0xffff_ffff;
     let (twf, thf) = (view.w as f32, view.h as f32);
     let (tw_max, th_max) = (view.w as i32 - 1, view.h as i32 - 1);
-    let inv_w = 1.0f32 / w as f32;
-    let inv_h = 1.0f32 / h as f32;
+    let native_x = native_texture_axis(u0, u1, view.w, w);
+    let native_y = native_texture_axis(v0, v1, view.h, h);
+    // Linear native-size sprites can copy texels when their neighboring
+    // sample weights are zero. Preserve the fallback's rounding otherwise.
+    let native_nearest = !view.linear || match (native_x, native_y) {
+        (Some(ax), Some(ay)) => native_linear_axis(u0, u1, view.w, w, ax)
+            && native_linear_axis(v0, v1, view.h, h, ay),
+        _ => false,
+    };
+    let inv_w = if native_x.is_some() && native_nearest { 0.0 } else { 1.0f32 / w as f32 };
+    let inv_h = if native_y.is_some() && native_nearest { 0.0 } else { 1.0f32 / h as f32 };
     for py in c.y0..c.y1 {
-        let v = v0 + (v1 - v0) * ((py - y) as f32 + 0.5) * inv_h;
-        let ty = ((v * thf) as i32).clamp(0, th_max);
+        let v = if native_y.is_some() && native_nearest {
+            0.0
+        } else {
+            v0 + (v1 - v0) * ((py - y) as f32 + 0.5) * inv_h
+        };
+        let ty = match native_y {
+            Some((origin, step)) => (origin + (py - y) * step).clamp(0, th_max),
+            None => ((v * thf) as i32).clamp(0, th_max),
+        };
         for px in c.x0..c.x1 {
-            let u = u0 + (u1 - u0) * ((px - x) as f32 + 0.5) * inv_w;
             // Nearest is the golden-pinned default path; linear is opt-in
             // per texture (spec::img::FLAG_LINEAR).
-            let sample = if view.linear {
+            let sample = if !native_nearest {
+                let u = u0 + (u1 - u0) * ((px - x) as f32 + 0.5) * inv_w;
                 sample_linear(&view, u, v)
             } else {
-                let tx = ((u * twf) as i32).clamp(0, tw_max);
+                let tx = match native_x {
+                    Some((origin, step)) => (origin + (px - x) * step).clamp(0, tw_max),
+                    None => {
+                        let u = u0 + (u1 - u0) * ((px - x) as f32 + 0.5) * inv_w;
+                        ((u * twf) as i32).clamp(0, tw_max)
+                    }
+                };
                 texel(&view, (ty * view.w as i32 + tx) as usize)
             };
             let Some((mut r, mut g, mut b, mut a)) = sample else {
@@ -1378,6 +1438,36 @@ mod tests {
             [0, 0, 0, 255],
             "clearing variant blacks out"
         );
+    }
+
+    #[test]
+    fn native_texture_axes_match_original_nearest_sampling() {
+        for tex_size in [1u32, 8, 16, 32, 64, 128, 256] {
+            for origin in [0, 1, tex_size / 4, tex_size / 2, tex_size] {
+                for len in [1, 7, 16, 18, 24, 25, 32, 41, 64] {
+                    for direction in [-1, 1] {
+                        let start = origin as f32 / tex_size as f32;
+                        let end = (origin as i32 + direction * len) as f32 / tex_size as f32;
+                        let (base, step) = native_texture_axis(start, end, tex_size, len).unwrap();
+                        for pixel in 0..len {
+                            let uv = start + (end - start) * (pixel as f32 + 0.5) * (1.0 / len as f32);
+                            let expected = ((uv * tex_size as f32) as i32).clamp(0, tex_size as i32 - 1);
+                            assert_eq!((base + pixel * step).clamp(0, tex_size as i32 - 1), expected);
+                            if native_linear_axis(start, end, tex_size, len, (base, step)) {
+                                let linear = linear_sample_coordinates(tex_size, 1, uv, 0.5).unwrap();
+                                assert_eq!(linear.fx, 0, "native linear sample must hit a texel center");
+                                assert_eq!(linear.x0, expected as u32);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert!(native_linear_axis(0.0, 24.0 / 64.0, 64, 24, (0, 1)), "circle corner");
+        assert!(!native_linear_axis(0.0, 41.0 / 64.0, 64, 41, (0, 1)), "fractional filter weights need the fallback");
+        assert_eq!(native_texture_axis(0.0, 1.0, 32, 64), None, "scaled image");
+        assert_eq!(native_texture_axis(0.25 / 32.0, 16.25 / 32.0, 32, 16), None, "fractional origin");
+        assert_eq!(native_texture_axis(f32::NAN, 1.0, 32, 32), None);
     }
 
     #[test]

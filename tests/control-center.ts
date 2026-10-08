@@ -1,8 +1,8 @@
-// Run: bun apps/classicos/tests/control-center.ts
+// Run: bun tests/control-center.ts
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
-import { analyzeModel } from "../../../pocketjs/microts/compiler/aot-model-frontend.ts";
-import { ModelInterpreter } from "../../../pocketjs/microts/compiler/model-interp.ts";
+import { analyzeModel } from "../runtime/microts/compiler/aot-model-frontend.ts";
+import { ModelInterpreter } from "../runtime/microts/compiler/model-interp.ts";
 
 const program = analyzeModel(resolve(import.meta.dir, "../shell/app.ts"));
 const model = new ModelInterpreter(program, {

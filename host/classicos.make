@@ -1,8 +1,8 @@
 # classicOS userspace: replaces the Rockbox UI sources (apps/SOURCES).
-# Enabled by CLASSICOS=1, which apps/classicos/configure.sh writes into the
+# Enabled by CLASSICOS=1, which scripts/configure.sh writes into the
 # generated build Makefile.
 #
-#   PJS_APP   run pocketjs/apps/<name> instead of the classicOS shell
+#   PJS_APP   run runtime/apps/<name> instead of the classicOS shell
 #   PJS_HUD=1 profiling strip (fps, phase times, stack, free RAM), see host.c
 
 SRC += $(call preprocess, $(APPSDIR)/classicos/SOURCES)
@@ -15,19 +15,18 @@ endif
 # normally apps/ objects pull those members in first, so group the archives.
 CORE_LDOPTS += -Wl,--start-group $(RBCODECLIB) $(FIRMLIB) $(PJS_LIB) -Wl,--end-group
 
-POCKETJS_DIR ?= $(ROOTDIR)/pocketjs
+POCKETJS_DIR ?= $(ROOTDIR)/../runtime
 ifdef PJS_APP
   PJS_APP_DIR := $(POCKETJS_DIR)/apps/$(PJS_APP)
 else
-  PJS_APP_DIR := $(APPSDIR)/classicos/shell
+  PJS_APP_DIR := $(ROOTDIR)/../shell
   # Out-of-tree apps resolve solid-js and @pocketjs/framework through these.
   PJS_NODE_LINKS := $(PJS_APP_DIR)/node_modules/@pocketjs/framework
-  PJS_RENDERER := $(APPSDIR)/classicos/renderer.rs
-  PJS_FEATURES := services,custom-renderer
 endif
+PJS_RENDERER := $(ROOTDIR)/../host/renderer.rs
 PJS_APP_NAME := $(notdir $(PJS_APP_DIR))
 PJS_FEATURES ?= services
-PJS_CRATE := $(POCKETJS_DIR)/hosts/rockbox
+PJS_CRATE := $(ROOTDIR)/../host/rust
 PJS_BUILD := $(BUILDDIR)/classicos
 PJS_GEN := $(PJS_BUILD)/gen
 PJS_LIB := $(BUILDDIR)/lib/libpocketjs.a
@@ -36,14 +35,14 @@ PJS_DATA := $(PJS_BUILD)/data/$(PJS_APP_NAME)
 
 ifeq ($(APP_TYPE),sdl-sim)
   PJS_CARGO := cargo build --locked --release --features $(PJS_FEATURES)
-  PJS_LIBPATH := release/libpocketjs_rockbox.a
+  PJS_LIBPATH := release/libclassicos_host.a
   PJS_SIMDATA := $(BUILDDIR)/simdisk/.rockbox/classicos/$(PJS_APP_NAME)
 else
   # ARM code to match Rockbox C, which builds without -mthumb-interwork.
   PJS_RUST_TARGET := armv4t-none-eabi
   PJS_CARGO := cargo +nightly-2026-07-01 build --locked --release --features $(PJS_FEATURES) \
                --target $(PJS_RUST_TARGET) -Z build-std=core,alloc
-  PJS_LIBPATH := $(PJS_RUST_TARGET)/release/libpocketjs_rockbox.a
+  PJS_LIBPATH := $(PJS_RUST_TARGET)/release/libclassicos_host.a
 endif
 
 CORE_LIBS += $(PJS_LIB)
@@ -55,9 +54,9 @@ $(PJS_NODE_LINKS):
 # Baked assets (fonts from text, images and SVG icons) come from the app dir too.
 PJS_APP_SRC := $(shell find $(PJS_APP_DIR) -path '*/node_modules' -prune -o -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.svg' -o -name '*.png' \) -print)
 
-$(PJS_GEN)/include.rs: $(PJS_APP_SRC) $(PJS_CRATE)/gen.ts $(APPSDIR)/classicos/tagnavi_user.config | $(PJS_NODE_LINKS)
+$(PJS_GEN)/include.rs: $(PJS_APP_SRC) $(ROOTDIR)/../host/gen.ts $(APPSDIR)/classicos/tagnavi_user.config | $(PJS_NODE_LINKS)
 	$(call PRINTS,MICROTS $(PJS_APP_NAME))rm -rf $(PJS_GEN) && cd $(POCKETJS_DIR) && \
-		bun ./hosts/rockbox/gen.ts $(PJS_APP_DIR)/app.tsx $(PJS_GEN) >/dev/null
+		bun $(ROOTDIR)/../host/gen.ts $(PJS_APP_DIR)/app.tsx $(PJS_GEN) >/dev/null
 	$(SILENT)rm -rf $(PJS_DATA) && mkdir -p $(PJS_DATA) && \
 		cp $(PJS_GEN)/font-*.bin $(PJS_DATA)/ && \
 		{ cp $(PJS_GEN)/*.rgba $(PJS_DATA)/ 2>/dev/null || true; }
@@ -70,5 +69,5 @@ PJS_CORE_SRC := $(shell find $(POCKETJS_DIR)/engine/core/src -type f -name '*.rs
 
 $(PJS_LIB): $(PJS_RENDERER) $(PJS_GEN)/include.rs $(wildcard $(PJS_CRATE)/src/*.rs) $(PJS_CRATE)/Cargo.toml $(PJS_CORE_SRC) $(POCKETJS_DIR)/engine/core/Cargo.toml
 	$(call PRINTS,CARGO pocketjs)cd $(PJS_CRATE) && \
-		POCKETJS_GEN=$(PJS_GEN) POCKETJS_RENDERER=$(PJS_RENDERER) CARGO_TARGET_DIR=$(PJS_BUILD)/cargo $(PJS_CARGO)
+		POCKETJS_GEN=$(PJS_GEN) CARGO_TARGET_DIR=$(PJS_BUILD)/cargo $(PJS_CARGO)
 	$(SILENT)mkdir -p $(dir $@) && cp $(PJS_BUILD)/cargo/$(PJS_LIBPATH) $@

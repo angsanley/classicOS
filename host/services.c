@@ -1,5 +1,5 @@
 /* State behind the PocketJS playback and system model services
- * (pocketjs/hosts/rockbox/src/services.rs). The structs mirror the Rust
+ * (host/rust/src/services.rs). The structs mirror the Rust
  * repr(C) definitions there. */
 
 #include "config.h"
@@ -202,7 +202,7 @@ void classicos_services_init(void)
     add_event(PLAYBACK_EVENT_CUR_TRACK_READY, on_track_ready);
     add_event(PLAYBACK_EVENT_TRACK_CHANGE, on_track_ready);
 #ifdef HAVE_ALBUMART
-    /* Matches ART_SIZE in pocketjs/hosts/rockbox/src/services.rs: PocketJS
+    /* Matches ART_SIZE in host/rust/src/services.rs: PocketJS
      * textures are power-of-two squares. */
     struct dim dim = { 128, 128 };
     aa_slot = playback_claim_aa_slot(&dim);

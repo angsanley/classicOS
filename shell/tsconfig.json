@@ -1,4 +1,4 @@
 {
-  "extends": "../../../pocketjs/tsconfig.json",
+  "extends": "../runtime/tsconfig.json",
   "include": ["**/*.ts", "**/*.tsx"]
 }

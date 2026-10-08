@@ -1,6 +1,6 @@
 /* PocketJS host: input, frame pacing and LCD updates around the Rust core
- * (pocketjs/hosts/rockbox/src/lib.rs). Ported from the Rockbox plugin host
- * in pocketjs/hosts/rockbox/plugin/pocketjs.c, minus the plugin API. */
+ * (host/rust/src/lib.rs). Ported from the Rockbox plugin host
+ * in runtime/hosts/rockbox/plugin/pocketjs.c, minus the plugin API. */
 
 #include "config.h"
 #include <stdio.h>

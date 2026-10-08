@@ -1,5 +1,4 @@
-//! Rockbox plugin host: a staticlib that runs a MicroTS app and rasterizes it
-//! into the plugin's RGB565 framebuffer. plugin/pocketjs.c owns the loop.
+//! classicOS firmware host. host.c owns the UI loop and RGB565 framebuffer.
 
 #![no_std]
 
@@ -16,7 +15,7 @@ use core::{
 use linked_list_allocator::Heap;
 use microts::{
     pocketjs_core::{
-        damage::{DamagePolicy, DamageTracker},
+        damage::DamageTracker,
         raster,
         spec::psm,
     },
@@ -25,6 +24,11 @@ use microts::{
 };
 
 include!(concat!(env!("POCKETJS_GEN"), "/include.rs"));
+
+mod renderer {
+    use microts::pocketjs_core;
+    include!("../../renderer.rs");
+}
 
 #[cfg(feature = "services")]
 mod services;
@@ -268,7 +272,8 @@ pub unsafe extern "C" fn pocketjs_frame(
     let fb = slice::from_raw_parts_mut(fb, (w * h) as usize);
     let tracker = &mut *addr_of_mut!(DAMAGE);
     let words = &core.current_draw_list().words;
-    let count = match raster::render_scaled_rgb565_incremental(&*core, words, fb, 1, tracker, DamagePolicy::default()) {
+    let result = renderer::render(&*core, words, fb, tracker);
+    let count = match result {
         Ok(plan) => {
             for (i, r) in plan.regions().iter().enumerate() {
                 *rects.add(i) = [r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0];

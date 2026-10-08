@@ -1,0 +1,16 @@
+{
+  "name": "classicos",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.3.14",
+  "workspaces": [
+    "runtime"
+  ],
+  "scripts": {
+    "build:sim": "bun scripts/build.ts sim",
+    "build:ipod": "bun scripts/build.ts ipod",
+    "sim": "bun scripts/build.ts sim --run",
+    "test": "bun tests/control-center.ts && cargo test --offline --manifest-path tests/renderer/Cargo.toml && cargo test --offline --manifest-path runtime/engine/core/Cargo.toml --lib",
+    "deploy": "scripts/deploy.sh out/ipod"
+  }
+}

@@ -7,7 +7,7 @@ publish = false
 [workspace]
 
 [lib]
-path = "../../renderer.rs"
+path = "../../host/renderer.rs"
 
 [dependencies]
-pocketjs-core = { path = "../../../../pocketjs/engine/core" }
+pocketjs-core = { path = "../../runtime/engine/core" }

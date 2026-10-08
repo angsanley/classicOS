@@ -63,7 +63,9 @@ ifdef PJS_SIMDATA
 	$(SILENT)cp $(APPSDIR)/classicos/tagnavi_user.config $(BUILDDIR)/simdisk/.rockbox/
 endif
 
-$(PJS_LIB): $(PJS_GEN)/include.rs $(wildcard $(PJS_CRATE)/src/*.rs) $(PJS_CRATE)/Cargo.toml
+PJS_CORE_SRC := $(shell find $(POCKETJS_DIR)/engine/core/src -type f -name '*.rs')
+
+$(PJS_LIB): $(PJS_GEN)/include.rs $(wildcard $(PJS_CRATE)/src/*.rs) $(PJS_CRATE)/Cargo.toml $(PJS_CORE_SRC) $(POCKETJS_DIR)/engine/core/Cargo.toml
 	$(call PRINTS,CARGO pocketjs)cd $(PJS_CRATE) && \
 		POCKETJS_GEN=$(PJS_GEN) CARGO_TARGET_DIR=$(PJS_BUILD)/cargo $(PJS_CARGO)
 	$(SILENT)mkdir -p $(dir $@) && cp $(PJS_BUILD)/cargo/$(PJS_LIBPATH) $@

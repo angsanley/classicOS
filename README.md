@@ -137,9 +137,9 @@ system build rules can find host sources. Edit the maintained files in
 
 ## Contributing
 
-Include reproduction steps for bugs and name the iPod model or simulator
-used for testing. For code changes, run `bun run test` and the relevant build.
-Hardware test reports for other iPod models are welcome.
+See the [contribution guide](CONTRIBUTING.md) for issues, pull requests,
+validation, and AI-assisted contributions. Hardware test reports for other
+iPod models are welcome.
 
 ## License
 

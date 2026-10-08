@@ -26,6 +26,7 @@ Run from the repository root:
 bun install --frozen-lockfile
 bun run build:sim
 bun run build:ipod
+bun run typecheck
 bun run test
 bun run sim
 bun run deploy /Volumes/<iPod>

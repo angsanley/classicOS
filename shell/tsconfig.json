@@ -1,4 +1,4 @@
 {
-  "extends": "../runtime/tsconfig.json",
+  "extends": "../tsconfig.json",
   "include": ["**/*.ts", "**/*.tsx"]
 }

@@ -1,0 +1,8 @@
+{
+  "extends": "./runtime/tsconfig.json",
+  "compilerOptions": {
+    "typeRoots": ["./runtime/node_modules/@types"]
+  },
+  "files": ["./runtime/framework/src/jsx.d.ts"],
+  "include": ["shell/**/*.ts", "shell/**/*.tsx", "host/gen.ts", "scripts/**/*.ts", "tests/**/*.ts"]
+}

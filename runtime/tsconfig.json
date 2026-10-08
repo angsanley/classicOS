@@ -14,8 +14,6 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "ignoreDeprecations": "5.0",
-    "baseUrl": ".",
     "paths": {
       "@pocketjs/framework": ["./framework/src/index.ts"],
       "@pocketjs/framework/animation": ["./framework/src/animation.ts"],

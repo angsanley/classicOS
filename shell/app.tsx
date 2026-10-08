@@ -14,7 +14,7 @@ import { onMount } from "@pocketjs/framework/solid/lifecycle";
 import {
   available, back, backlightIndex, backlightLabel, backlightOption, backlightSelect, backlightWheel, libraryCount, libraryFirst, libraryIndex, libraryLoading, libraryReady, libraryRows, libraryScroll, librarySelect, libraryTitle, libraryWheel, libraryTracks, libraryEmpty, librarySubs, libraryTwoLine, libraryPitch, spinnerFrame, updateStarted, settingsScroll, aboutScroll, aboutWheel, songsText, clickerIndex, clickerLabel, clickerSelect, clickerWheel,
   batteryText, brightnessPx, clicker, plugged, brightnessWheel, capacity, settingsIndex, settingsSelect, settingsWheel, version,
-  album, art, artistAlbum, date, hold, artBottom, artTop, artist, badge, batteryPx, date, elapsed, hasTrack,
+  album, art, artistAlbum, date, hold, artBottom, artTop, artist, badge, batteryPx, elapsed, hasTrack,
   drawerIndex, drawerSelect, drawerWheel, musicIndex, musicSelect, musicWheel, openDrawer, poll, progressPx,
   remaining, screen, status, time, title, marqueeFits, marqueeOffset,
   volumeLevel, volumeLitPx, volumeShown, wheel,

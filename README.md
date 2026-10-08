@@ -104,6 +104,7 @@ ejects the volume. The bootloader and original firmware remain unchanged.
 Run the model, renderer, and runtime checks:
 
 ```sh
+bun run typecheck
 bun run test
 ```
 

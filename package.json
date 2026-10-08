@@ -10,6 +10,7 @@
     "build:sim": "bun scripts/build.ts sim",
     "build:ipod": "bun scripts/build.ts ipod",
     "sim": "bun scripts/build.ts sim --run",
+    "typecheck": "bun runtime/node_modules/typescript/bin/tsc --noEmit",
     "test": "bun tests/control-center.ts && cargo test --offline --manifest-path tests/renderer/Cargo.toml && cargo test --offline --manifest-path runtime/engine/core/Cargo.toml --lib",
     "deploy": "scripts/deploy.sh out/ipod"
   },

@@ -18,7 +18,7 @@ import {
   drawerIndex, drawerSelect, drawerWheel, musicIndex, musicSelect, musicWheel, openDrawer, poll, progressPx,
   remaining, screen, status, time, title, marqueeFits, marqueeOffset,
   volumeLevel, volumeLitPx, volumeShown, wheel,
-  ccOpen, ccIndex, ccSelect, ccWheel, openControlCenter, powerConfirm, powerIndex, repeat, repeatLabel, rootSelect, rootWheel, shuffle, shuffleLabel, volumeMode,
+  ccOpen, ccIndex, ccSelect, ccWheel, openControlCenter, repeat, repeatLabel, rootSelect, rootWheel, shuffle, shuffleLabel, volumeMode,
 } from "./app";
 import Drawer from "./Drawer.tsx";
 import Hold from "./Hold.tsx";
@@ -50,6 +50,15 @@ export default function Shell() {
     <AxisHandler axis="primary" onDelta={(delta) => rootWheel(delta)} />
     <ActionHandler button={BTN.CIRCLE} latched onPress={() => rootSelect()} />
     <Switch>
+      <Match when={ccOpen()}>
+        <ControlCenter
+          selected={ccIndex()} shuffle={shuffle()} repeat={repeat()}
+          shuffleLabel={shuffleLabel()} repeatLabel={repeatLabel()}
+          artTop={artTop()} artBottom={artBottom()}
+          status={status()} time={time()} batteryPx={batteryPx()} plugged={plugged()}
+          onWheel={(delta) => ccWheel(delta)} onSelect={() => ccSelect()} onBack={() => back()}
+        />
+      </Match>
       <Match when={screen() === "drawer"}>
         <Drawer
           selected={drawerIndex()}
@@ -184,14 +193,6 @@ export default function Shell() {
     </Switch>
     <Show when={volumeMode() && screen() !== "now" && volumeShown()}>
       <VolumeHud level={volumeLevel()} litPx={volumeLitPx()} />
-    </Show>
-    <Show when={ccOpen()}>
-      <ControlCenter
-        title={title()} artist={artist()} hasTrack={hasTrack()} selected={ccIndex()}
-        shuffle={shuffle()} repeat={repeat()} shuffleLabel={shuffleLabel()} repeatLabel={repeatLabel()}
-        confirm={powerConfirm()} confirmIndex={powerIndex()}
-        onWheel={(delta) => ccWheel(delta)} onSelect={() => ccSelect()}
-      />
     </Show>
     </Show>
     </>

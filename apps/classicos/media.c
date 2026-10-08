@@ -9,19 +9,6 @@
 #include "settings.h"
 #include "media.h"
 
-/* Like the iPod after power-on: the last song is loaded and paused where it
- * stopped, so Now Playing shows it and Play continues. Resumes as the Play
- * key does, then pauses before any audio comes out. */
-void media_preload(void)
-{
-    if (playlist_resume() != -1) {
-        playlist_start(global_status.resume_index,
-                       global_status.resume_elapsed,
-                       global_status.resume_offset);
-        audio_pause();
-    }
-}
-
 void media_play_pause(void)
 {
     int status = audio_status();

@@ -207,9 +207,6 @@ void classicos_host_run(void)
         panicf(ret == -2 ? "PocketJS: font or image missing in " DATA_DIR
                          : "PocketJS: init failed (%d)", ret);
     last_input = last_active = current_tick;
-    /* The last song, paused. On this thread's big stack: from main(), on
-     * the small boot stack, playlist_resume() overflowed it at boot. */
-    media_preload();
 #ifdef PJS_HUD
     perf.since = last_active;
 #endif

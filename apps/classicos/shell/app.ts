@@ -200,6 +200,7 @@ async function restMarquee(): Promise<void> {
 }
 
 function marqueeTick(): void {
+  if (ccOpen() || hold()) return;
   if (marqueeText() !== marqueeShown) {
     marqueeShown = marqueeText();
     setMarqueeWidth(0);
@@ -264,18 +265,14 @@ function volumeStep(delta: i32): void {
 }
 
 // Control Center: hold Menu (host.c turns a held Menu into BTN.TRIANGLE; a
-// tap stays Back). A sheet over the current screen: Volume, Shuffle,
-// Repeat, Power Off. While it or the volume HUD it opens is up, the screen
-// underneath ignores input (blocked()); Menu goes through back().
+// tap stays Back). Full-screen Volume, Shuffle, Repeat and Power Off controls.
+// The saved screen ignores input (blocked()); Menu goes through back().
 export const [ccOpen, setCcOpen] = createSignal<boolean>(false);
 /** Focused tile: 0 Volume, 1 Shuffle, 2 Repeat, 3 Power Off */
 export const [ccIndex, setCcIndex] = createSignal<i32>(0);
 export const [shuffle, setShuffle] = createSignal<boolean>(false);
 /** 0 off, 1 all, 2 one */
 export const [repeat, setRepeat] = createSignal<i32>(0);
-/** Power Off asks first: Cancel (0) or Power Off (1) */
-export const [powerConfirm, setPowerConfirm] = createSignal<boolean>(false);
-export const [powerIndex, setPowerIndex] = createSignal<i32>(0);
 /** Control Center's Volume: the HUD over any screen, the wheel on volume */
 export const [volumeMode, setVolumeMode] = createSignal<boolean>(false);
 let shufflePending: boolean = false;
@@ -292,21 +289,14 @@ export function openControlCenter(): void {
   setVolumeMode(false);
   setVolumeShown(false);
   setCcIndex(0);
-  setPowerConfirm(false);
   setCcOpen(true);
 }
 
 export function ccWheel(delta: i32): void {
-  if (powerConfirm()) setPowerIndex(step(powerIndex(), delta, 2));
-  else setCcIndex(step(ccIndex(), delta, CC_TILES));
+  setCcIndex(step(ccIndex(), delta, CC_TILES));
 }
 
 export function ccSelect(): void {
-  if (powerConfirm()) {
-    if (powerIndex() === 1) powerOffWanted = true;
-    else setPowerConfirm(false);
-    return;
-  }
   const i = ccIndex();
   if (i === 0) {
     setCcOpen(false);
@@ -319,8 +309,7 @@ export function ccSelect(): void {
     setRepeat(imod(repeat() + 1, 3));
     repeatPending = true;
   } else {
-    setPowerIndex(0);
-    setPowerConfirm(true);
+    powerOffWanted = true;
   }
 }
 
@@ -540,7 +529,7 @@ function scrollToTop(top: i32, scroll: i32, height: i32): i32 {
 
 /** Menu on Now Playing */
 export function openDrawer(): void {
-  if (blocked() || powerConfirm()) {
+  if (blocked()) {
     back();
     return;
   }
@@ -575,10 +564,6 @@ export function musicWheel(delta: i32): void {
 /** Menu: Settings' pages go back to Settings, the apps to the drawer, and
  * the drawer to Now Playing while something plays. */
 export function back(): void {
-  if (powerConfirm()) {
-    setPowerConfirm(false);
-    return;
-  }
   if (ccOpen()) {
     setCcOpen(false);
     return;

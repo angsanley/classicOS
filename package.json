@@ -12,5 +12,6 @@
     "sim": "bun scripts/build.ts sim --run",
     "test": "bun tests/control-center.ts && cargo test --offline --manifest-path tests/renderer/Cargo.toml && cargo test --offline --manifest-path runtime/engine/core/Cargo.toml --lib",
     "deploy": "scripts/deploy.sh out/ipod"
-  }
+  },
+  "license": "GPL-2.0-or-later"
 }

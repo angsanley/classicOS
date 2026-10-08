@@ -49,8 +49,7 @@ int pocketjs_frame(fb_data *fb, int w, int h, unsigned buttons, int wheel,
 void pocketjs_invalidate(void);
 void pocketjs_timings(uint32_t *out);
 
-/* static heap; carve it from buflib next to the audio buffer once
- * playback is linked (M3). The plugin host peaked around 255 KB. */
+/* Static 2 MiB heap for the UI runtime. */
 static unsigned char heap[2 * 1024 * 1024] __attribute__((aligned(8)));
 
 uint32_t pocketjs_host_usec(void)

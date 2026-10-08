@@ -68,8 +68,7 @@ void viewport_set_buffer(struct viewport *vp, struct frame_buffer_t *buffer,
     panicf("viewport_set_buffer");
 }
 
-/* Native firmware also wires in iAP (dock), USB audio and DSP glue, which
- * call the playback engine. no-ops until playback.c lands (M3). */
+/* Compatibility hooks for unused stock UI and accessory services. */
 #include <sys/types.h>
 #include <fcntl.h>
 #ifdef IPOD_ACCESSORY_PROTOCOL

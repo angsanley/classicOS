@@ -22,8 +22,11 @@ else
   PJS_APP_DIR := $(APPSDIR)/classicos/shell
   # Out-of-tree apps resolve solid-js and @pocketjs/framework through these.
   PJS_NODE_LINKS := $(PJS_APP_DIR)/node_modules/@pocketjs/framework
+  PJS_RENDERER := $(APPSDIR)/classicos/renderer.rs
+  PJS_FEATURES := services,custom-renderer
 endif
 PJS_APP_NAME := $(notdir $(PJS_APP_DIR))
+PJS_FEATURES ?= services
 PJS_CRATE := $(POCKETJS_DIR)/hosts/rockbox
 PJS_BUILD := $(BUILDDIR)/classicos
 PJS_GEN := $(PJS_BUILD)/gen
@@ -32,13 +35,13 @@ PJS_LIB := $(BUILDDIR)/lib/libpocketjs.a
 PJS_DATA := $(PJS_BUILD)/data/$(PJS_APP_NAME)
 
 ifeq ($(APP_TYPE),sdl-sim)
-  PJS_CARGO := cargo build --locked --release --features services
+  PJS_CARGO := cargo build --locked --release --features $(PJS_FEATURES)
   PJS_LIBPATH := release/libpocketjs_rockbox.a
   PJS_SIMDATA := $(BUILDDIR)/simdisk/.rockbox/classicos/$(PJS_APP_NAME)
 else
   # ARM code to match Rockbox C, which builds without -mthumb-interwork.
   PJS_RUST_TARGET := armv4t-none-eabi
-  PJS_CARGO := cargo +nightly-2026-07-01 build --locked --release --features services \
+  PJS_CARGO := cargo +nightly-2026-07-01 build --locked --release --features $(PJS_FEATURES) \
                --target $(PJS_RUST_TARGET) -Z build-std=core,alloc
   PJS_LIBPATH := $(PJS_RUST_TARGET)/release/libpocketjs_rockbox.a
 endif
@@ -65,7 +68,7 @@ endif
 
 PJS_CORE_SRC := $(shell find $(POCKETJS_DIR)/engine/core/src -type f -name '*.rs')
 
-$(PJS_LIB): $(PJS_GEN)/include.rs $(wildcard $(PJS_CRATE)/src/*.rs) $(PJS_CRATE)/Cargo.toml $(PJS_CORE_SRC) $(POCKETJS_DIR)/engine/core/Cargo.toml
+$(PJS_LIB): $(PJS_RENDERER) $(PJS_GEN)/include.rs $(wildcard $(PJS_CRATE)/src/*.rs) $(PJS_CRATE)/Cargo.toml $(PJS_CORE_SRC) $(POCKETJS_DIR)/engine/core/Cargo.toml
 	$(call PRINTS,CARGO pocketjs)cd $(PJS_CRATE) && \
-		POCKETJS_GEN=$(PJS_GEN) CARGO_TARGET_DIR=$(PJS_BUILD)/cargo $(PJS_CARGO)
+		POCKETJS_GEN=$(PJS_GEN) POCKETJS_RENDERER=$(PJS_RENDERER) CARGO_TARGET_DIR=$(PJS_BUILD)/cargo $(PJS_CARGO)
 	$(SILENT)mkdir -p $(dir $@) && cp $(PJS_BUILD)/cargo/$(PJS_LIBPATH) $@

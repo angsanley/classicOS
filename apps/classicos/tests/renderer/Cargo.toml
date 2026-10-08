@@ -1,0 +1,13 @@
+[package]
+name = "classicos-renderer-check"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[lib]
+path = "../../renderer.rs"
+
+[dependencies]
+pocketjs-core = { path = "../../../../pocketjs/engine/core" }

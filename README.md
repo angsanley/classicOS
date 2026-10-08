@@ -86,8 +86,9 @@ The firmware image is written to `out/ipod/rockbox.ipod`.
 
 ## Install on iPod
 
-Your iPod must already have the Rockbox bootloader installed. Mount it in
-disk mode, then pass its volume path:
+Follow [Rockbox’s installation guide](https://www.rockbox.org/wiki/RockboxUtility)
+to install the bootloader for your iPod model. Once installed, mount your iPod
+in disk mode and pass its volume path:
 
 ```sh
 bun run deploy /Volumes/CLASSICOS

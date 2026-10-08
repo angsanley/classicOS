@@ -282,6 +282,8 @@ pub struct Ui {
     raster_revision: u64,
     focused: i32,
     draw_list: DrawList,
+    draw_dirty: bool,
+    animated_sprites: usize,
     /// Virtual cursor sprite (spec ops 28/29, input.cursor capability):
     /// texture handle (< 0 = hidden), hotspot offset into the sprite,
     /// logical draw size (0 = the texture's own pixel size), and the
@@ -366,6 +368,8 @@ impl Ui {
             raster_revision: 1,
             focused: 0,
             draw_list: DrawList::new(),
+            draw_dirty: true,
+            animated_sprites: 0,
             cursor_tex: -1,
             cursor_hot: (0.0, 0.0),
             cursor_size: (0.0, 0.0),
@@ -413,12 +417,14 @@ impl Ui {
     }
 
     fn bump_raster_revision(&mut self) {
+        self.draw_dirty = true;
         self.raster_revision = self.raster_revision.wrapping_add(1);
     }
 
     /// Fonts, text providers or styles changed: every retained text
     /// measurement is stale.
     fn mark_layout_dirty(&mut self) {
+        self.draw_dirty = true;
         self.layout.invalidate_measurements();
         if let Some(auxiliary) = self.auxiliary.as_mut() {
             auxiliary.layout.invalidate_measurements();
@@ -428,6 +434,7 @@ impl Ui {
     /// Nodes moved, appeared or disappeared: reconcile the retained trees and
     /// keep unchanged nodes and measurements.
     fn mark_layout_structure(&mut self) {
+        self.draw_dirty = true;
         self.layout.mark_structure();
         if let Some(auxiliary) = self.auxiliary.as_mut() {
             auxiliary.layout.mark_structure();
@@ -435,6 +442,7 @@ impl Ui {
     }
 
     fn mark_layout_style(&mut self, slot: u32) {
+        self.draw_dirty = true;
         self.layout.mark_style(slot);
         if let Some(auxiliary) = self.auxiliary.as_mut() {
             auxiliary.layout.mark_style(slot);
@@ -519,6 +527,7 @@ impl Ui {
         self.tree.collect_subtree(id, &mut slots);
         for slot in slots {
             let nid = self.tree.slots[slot as usize].id(slot);
+            self.animated_sprites -= usize::from(self.tree.slots[slot as usize].sprite_frames > 1);
             self.anims.kill_node(nid);
             self.tree.free_slot(slot);
         }
@@ -611,8 +620,14 @@ impl Ui {
         let nid = self.tree.slots[slot as usize].id(slot);
         self.anims.kill_for(nid, prop);
         let node = &mut self.tree.slots[slot as usize];
+        if tree::Node::find_entry(&node.overrides, prop) == Some(bits)
+            && tree::Node::find_entry(&node.anim_values, prop).is_none()
+        {
+            return;
+        }
         tree::Node::remove_entry(&mut node.anim_values, prop);
         tree::Node::put_entry(&mut node.overrides, prop, bits);
+        self.draw_dirty = true;
         if spec::is_layout_dirtying(prop) {
             self.mark_layout_style(slot);
         }
@@ -631,6 +646,7 @@ impl Ui {
         {
             return;
         }
+        self.draw_dirty = true;
         // Text updates ride the incremental style-dirty path (the restyle
         // branch re-collects the run and re-shapes ONCE). Only an empty <->
         // non-empty flip is structural: empty runs are excluded from the
@@ -880,7 +896,13 @@ impl Ui {
         };
         let node = &mut self.tree.slots[slot as usize];
         if node.node_type == spec::NodeType::Image as u8 {
-            node.tex = if tex < 0 { -1 } else { tex };
+            let tex = if tex < 0 { -1 } else { tex };
+            if node.tex == tex && node.sprite_frames == 0 {
+                return;
+            }
+            self.animated_sprites -= usize::from(node.sprite_frames > 1);
+            self.draw_dirty = true;
+            node.tex = tex;
             node.sprite_frames = 0; // set_image reverts a sprite to a static image
         }
     }
@@ -896,6 +918,8 @@ impl Ui {
         if node.node_type != spec::NodeType::Surface as u8 {
             return;
         }
+        self.draw_dirty |= node.compositor_surface != surface.max(-1)
+            || node.compositor_focused != focused;
         node.compositor_surface = surface.max(-1);
         node.compositor_focused = focused;
     }
@@ -993,6 +1017,8 @@ impl Ui {
         if node.node_type != spec::NodeType::Image as u8 {
             return;
         }
+        self.draw_dirty = true;
+        self.animated_sprites -= usize::from(node.sprite_frames > 1);
         if frames == 0 || atlas < 0 {
             node.sprite_frames = 0;
             node.tex = -1;
@@ -1000,6 +1026,7 @@ impl Ui {
         }
         node.tex = atlas;
         node.sprite_frames = frames.min(u16::MAX as u32) as u16;
+        self.animated_sprites += usize::from(node.sprite_frames > 1);
         node.sprite_cols = cols.clamp(1, u16::MAX as u32) as u16;
         node.sprite_step = step.clamp(1, u16::MAX as u32) as u16;
         node.sprite_start = frame;
@@ -1073,6 +1100,7 @@ impl Ui {
                 let node = &mut self.tree.slots[slot as usize];
                 tree::Node::remove_entry(&mut node.anim_values, prop);
                 tree::Node::put_entry(&mut node.overrides, prop, to_bits);
+                self.draw_dirty = true;
                 if spec::is_layout_dirtying(prop) {
                     self.mark_layout_style(slot);
                 }
@@ -1294,6 +1322,7 @@ impl Ui {
     /// (hot_x, hot_y). tex < 0 or a stale handle hides the cursor; w/h <= 0
     /// draw at the texture's own pixel size.
     pub fn set_cursor(&mut self, tex: i32, hot_x: f32, hot_y: f32, w: f32, h: f32) {
+        self.draw_dirty = true;
         self.cursor_tex = if tex >= 0 && tex_resolve(&self.textures, tex).is_some() {
             tex
         } else {
@@ -1306,7 +1335,9 @@ impl Ui {
     /// Move the cursor hotspot (spec op setCursorPos), logical px. Clamped
     /// to the DrawList's i16-safe coordinate range.
     pub fn set_cursor_pos(&mut self, x: f32, y: f32) {
-        self.cursor_pos = (x.clamp(-32000.0, 32000.0), y.clamp(-32000.0, 32000.0));
+        let pos = (x.clamp(-32000.0, 32000.0), y.clamp(-32000.0, 32000.0));
+        self.draw_dirty |= self.cursor_tex >= 0 && self.cursor_pos != pos;
+        self.cursor_pos = pos;
     }
 
     // ---- frame -------------------------------------------------------------
@@ -1323,6 +1354,8 @@ impl Ui {
             self.step_pending = false;
         }
         self.frame = self.frame.wrapping_add(1);
+        // sprites and the inspector rebuild each tick; static screens reuse the list.
+        self.draw_dirty |= self.animated_sprites != 0 || self.inspect_id != 0;
         // Advance every live track (index loop: tracks may be killed inside).
         for tslot in 0..self.anims.tracks.len() as u32 {
             if !self.anims.tracks[tslot as usize].alive {
@@ -1337,6 +1370,7 @@ impl Ui {
                 self.anims.finish(tslot, anim::CompletionReason::Dropped);
                 continue;
             };
+            self.draw_dirty = true;
             let node = &mut self.tree.slots[slot as usize];
             if done {
                 match kind {
@@ -1363,6 +1397,7 @@ impl Ui {
         self.anims.publish_completions();
         self.tick_timelines();
         if !self.physics.is_idle() {
+            self.draw_dirty = true;
             // Anchors and node colliders read layout, so it must be current.
             if self.layout.needs() {
                 layout::relayout(&mut self.tree, &self.styles, &self.fonts, &mut self.layout);
@@ -1401,6 +1436,7 @@ impl Ui {
     /// `physicsDestroy(handle)`.
     pub fn physics_destroy(&mut self, handle: i32) {
         self.physics.destroy(handle, &mut self.tree);
+        self.draw_dirty = true;
     }
 
     /// `physicsEvents()`: move the pending records into `out`.
@@ -1526,12 +1562,14 @@ impl Ui {
                     match value {
                         Some(bits) => {
                             if prev != Some(bits) {
+                                self.draw_dirty = true;
                                 tree::Node::put_entry(&mut node.anim_values, prop, bits);
                                 layout_changed |= spec::is_layout_dirtying(prop);
                             }
                         }
                         None => {
                             if prev.is_some() {
+                                self.draw_dirty = true;
                                 tree::Node::remove_entry(&mut node.anim_values, prop);
                                 layout_changed |= spec::is_layout_dirtying(prop);
                             }
@@ -1575,6 +1613,17 @@ impl Ui {
                 });
             }
         }
+    }
+
+    /// Reuse the main DrawList until a mutation or frame-driven paint changes.
+    /// Model ticks and host damage/resource checks must still run each frame.
+    /// Returns true when the tree was walked.
+    pub fn draw_if_changed(&mut self) -> bool {
+        if !self.draw_dirty && !self.layout.needs() {
+            return false;
+        }
+        self.draw();
+        true
     }
 
     /// Walk the tree into the DrawList (spec.ts DRAWLIST format) and return
@@ -1662,6 +1711,7 @@ impl Ui {
         if self.inspect_id != 0 {
             self.inspect_rect = target;
         }
+        self.draw_dirty = false;
         &self.draw_list
     }
 
@@ -1828,6 +1878,7 @@ impl Ui {
     /// Set (0 = clear) the inspected node. The next `draw()` that paints it
     /// captures its world AABB and appends the highlight overlay on top.
     pub fn debug_inspect(&mut self, id: i32) {
+        self.draw_dirty = true;
         self.inspect_id = id;
         self.inspect_rect = None;
         // Keep inspect_drawn: switching targets glides the box from the old

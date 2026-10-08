@@ -4598,3 +4598,85 @@ fn node_inspection_rejects_stale_generation_ids() {
     assert_eq!(ui.node_text(text), None);
     assert_eq!(ui.node_text(replacement), Some(""));
 }
+
+#[test]
+fn unchanged_draws_skip_the_tree_and_mutations_match_a_full_draw() {
+    fn check(ui: &mut Ui, rebuilt: bool) {
+        assert_eq!(ui.draw_if_changed(), rebuilt);
+        let cached = ui.current_draw_list().words.clone();
+        assert_eq!(cached, ui.draw().words, "cached draw differs from a fresh walk");
+    }
+    let mut ui = Ui::new();
+    let n = abs_box(&mut ui, spec::ROOT_ID, 0.0, 0.0, 40.0, 40.0);
+    ui.set_prop(n, spec::prop::BG_COLOR, abgr(20, 30, 40, 255) as f64);
+    check(&mut ui, true);
+    for _ in 0..100 {
+        ui.tick();
+        assert!(!ui.draw_if_changed());
+    }
+    ui.set_prop(n, spec::prop::BG_COLOR, abgr(20, 30, 40, 255) as f64);
+    check(&mut ui, false);
+    ui.set_prop(n, spec::prop::BG_COLOR, abgr(40, 30, 20, 255) as f64);
+    check(&mut ui, true);
+    ui.set_prop(n, spec::prop::TRANSLATE_X, 5.0);
+    check(&mut ui, true);
+    assert!(ui.load_font_atlas(&encode_atlas(0, 8, 8, 7, 10, 3,
+        &[(0xfffd, 0, 8), ('A' as u32, 1, 6), ('B' as u32, 2, 5)])));
+    let text = ui.create_node(spec::NodeType::Text as u8);
+    ui.insert_before(n, text, 0);
+    ui.set_prop(text, spec::prop::WIDTH, 30.0);
+    ui.set_prop(text, spec::prop::HEIGHT, 12.0);
+    ui.set_text(text, "A");
+    check(&mut ui, true);
+    ui.set_text(text, "B"); // Fixed-size text does not invalidate layout.
+    check(&mut ui, true);
+    ui.set_focus(n);
+    check(&mut ui, true);
+    ui.set_viewport(320.0, 240.0);
+    check(&mut ui, true);
+
+    let tex = ui.upload_texture(&[255; 8 * 8 * 4], 8, 8, spec::psm::PSM_8888);
+    let image = ui.create_node(spec::NodeType::Image as u8);
+    ui.set_prop(image, spec::prop::WIDTH, 16.0);
+    ui.set_prop(image, spec::prop::HEIGHT, 16.0);
+    ui.insert_before(spec::ROOT_ID, image, 0);
+    ui.set_sprite(image, tex, 4, 2, 1);
+    check(&mut ui, true);
+    for _ in 0..8 {
+        ui.tick();
+        check(&mut ui, true);
+    }
+    ui.set_image(image, tex);
+    check(&mut ui, true);
+    ui.tick();
+    check(&mut ui, false);
+    ui.set_sprite(image, tex, 4, 2, 1);
+    ui.destroy_node(image);
+    check(&mut ui, true);
+    ui.tick();
+    check(&mut ui, false);
+    ui.set_cursor(tex, 0.0, 0.0, 8.0, 8.0);
+    check(&mut ui, true);
+    ui.set_cursor_pos(12.0, 12.0);
+    check(&mut ui, true);
+    ui.free_texture(tex);
+    check(&mut ui, true);
+
+    assert!(ui.animate(n, spec::prop::TRANSLATE_X, 20.0, 100, spec::Easing::Linear as u8, 0) > 0);
+    for _ in 0..3 {
+        ui.tick();
+        check(&mut ui, true);
+    }
+    let mut style = StyleSpec::new();
+    style.animation = Some((0, alloc::vec![0]));
+    assert!(ui.load_styles(&encode_styles_with_anims(&[style], &[slide_anim()])));
+    ui.set_style(n, 0);
+    check(&mut ui, true);
+    for _ in 0..95 {
+        ui.tick();
+        let cached = { ui.draw_if_changed(); ui.current_draw_list().words.clone() };
+        assert_eq!(cached, ui.draw().words, "timeline paint escaped invalidation");
+    }
+    ui.remove_child(spec::ROOT_ID, n);
+    check(&mut ui, true);
+}

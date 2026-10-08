@@ -263,7 +263,7 @@ pub unsafe extern "C" fn pocketjs_frame(
     services::bind_art(app.ui_mut());
     let t1 = pocketjs_host_usec();
     let core = app.ui_mut().core_mut();
-    core.draw();
+    core.draw_if_changed();
     let t2 = pocketjs_host_usec();
     let fb = slice::from_raw_parts_mut(fb, (w * h) as usize);
     let tracker = &mut *addr_of_mut!(DAMAGE);

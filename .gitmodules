@@ -1,4 +1,0 @@
-[submodule "pocketjs"]
-	path = pocketjs
-	url = https://github.com/angsanley/pocketjs.git
-	branch = classicos

@@ -554,6 +554,30 @@ pub fn render_scaled_rgb565_incremental<const MAX_REGIONS: usize>(
     )
 }
 
+/// Replay RGB565 regions over pixels already restored by the caller.
+/// Unlike `render_scaled_rgb565_regions`, this does not clear the regions.
+pub fn render_scaled_rgb565_regions_over(
+    ui: &impl RenderResources,
+    words: &[u32],
+    fb: &mut [u16],
+    scale: u32,
+    regions: &[DamageRect],
+) {
+    let mut target = Rgb565Target { pixels: fb };
+    let (width, _, screen) = target_geometry(ui, &target, scale);
+    for region in regions {
+        let clip = screen.intersect(Clip {
+            x0: region.x0 * scale as i32,
+            y0: region.y0 * scale as i32,
+            x1: region.x1 * scale as i32,
+            y1: region.y1 * scale as i32,
+        });
+        if clip.x0 < clip.x1 && clip.y0 < clip.y1 {
+            render_scaled_clipped(ui, words, &mut target, width, scale as i32, clip);
+        }
+    }
+}
+
 fn render_scaled_impl<T: RenderTarget>(
     ui: &impl RenderResources,
     words: &[u32],

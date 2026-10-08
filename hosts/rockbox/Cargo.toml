@@ -26,6 +26,8 @@ panic = "abort"
 # Rockbox playback/system model services; the host must link
 # pocketjs_host_playback and pocketjs_host_system (see src/services.rs).
 services = []
+# App-owned Rust renderer supplied through POCKETJS_RENDERER.
+custom-renderer = []
 
 [dependencies]
 microts = { path = "../../engine/crates/microts", features = ["critical-section"] }

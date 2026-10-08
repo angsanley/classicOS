@@ -46,3 +46,11 @@ The plugin buffer on the iPod Video holds 512 KB of code and data. Fonts and ima
 The app clock counts frames, so app time runs at one third of wall time during idle frames. Rockbox stops playback to lend the audio buffer, so music cannot play while the plugin runs. `gen.ts` bakes images and glyphs that appear as literals in the app's sources; computed `src` values and runtime strings outside those literals are not baked.
 
 Keep firmware archives, measurements and screenshots in ignored `.pocket-build/validation/rockbox/` output or an artifact store.
+
+An embedding application can enable `custom-renderer` and set
+`POCKETJS_RENDERER` to the absolute path of its Rust renderer source. That
+module supplies `render(ui: &impl RenderResources, words: &[u32], fb: &mut [u16],
+tracker: &mut DamageTracker<8>) -> Result<DamagePlan<8>, DamageError>` using
+`pocketjs_core` types. It must track the complete draw list, preserve pixels
+outside damage regions, and return the regions to upload. The default plugin
+build does not enable this hook.

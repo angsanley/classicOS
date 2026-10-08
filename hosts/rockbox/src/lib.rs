@@ -14,9 +14,11 @@ use core::{
     slice,
 };
 use linked_list_allocator::Heap;
+#[cfg(not(feature = "custom-renderer"))]
+use microts::pocketjs_core::damage::DamagePolicy;
 use microts::{
     pocketjs_core::{
-        damage::{DamagePolicy, DamageTracker},
+        damage::DamageTracker,
         raster,
         spec::psm,
     },
@@ -25,6 +27,13 @@ use microts::{
 };
 
 include!(concat!(env!("POCKETJS_GEN"), "/include.rs"));
+
+// Optional app-owned rendering policy; plugin apps use the normal renderer.
+#[cfg(feature = "custom-renderer")]
+mod custom_renderer {
+    use microts::pocketjs_core;
+    include!(env!("POCKETJS_RENDERER"));
+}
 
 #[cfg(feature = "services")]
 mod services;
@@ -268,7 +277,11 @@ pub unsafe extern "C" fn pocketjs_frame(
     let fb = slice::from_raw_parts_mut(fb, (w * h) as usize);
     let tracker = &mut *addr_of_mut!(DAMAGE);
     let words = &core.current_draw_list().words;
-    let count = match raster::render_scaled_rgb565_incremental(&*core, words, fb, 1, tracker, DamagePolicy::default()) {
+    #[cfg(feature = "custom-renderer")]
+    let result = custom_renderer::render(&*core, words, fb, tracker);
+    #[cfg(not(feature = "custom-renderer"))]
+    let result = raster::render_scaled_rgb565_incremental(&*core, words, fb, 1, tracker, DamagePolicy::default());
+    let count = match result {
         Ok(plan) => {
             for (i, r) in plan.regions().iter().enumerate() {
                 *rects.add(i) = [r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0];

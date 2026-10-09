@@ -141,6 +141,17 @@ See the [contribution guide](CONTRIBUTING.md) for issues, pull requests,
 validation, and AI-assisted contributions. Hardware test reports for other
 iPod models are welcome.
 
+## Acknowledgements
+
+classicOS builds on [Rockbox](https://www.rockbox.org/) and
+[PocketJS](https://github.com/pocket-nexus/pocketjs), includes code adapted from
+[CrazyPod](https://github.com/Gigass/CrazyPod), and uses the
+[Inter](https://github.com/rsms/inter) typeface (OFL) and
+[Framework7 Icons](https://github.com/framework7io/framework7-icons) (MIT).
+
+classicOS is an independent project and is not affiliated with Apple Inc.
+iPod is a trademark of Apple Inc.
+
 ## License
 
 New classicOS code is licensed under GPL-2.0-or-later. The combined firmware
